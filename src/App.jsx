@@ -17,14 +17,6 @@ export default function App() {
   const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
   const [renamingFolder, setRenamingFolder] = useState(null)
   const [renamingValue, setRenamingValue] = useState('')
-  const [r2Usage, setR2Usage] = useState({
-    storage: 0, // 已用存储（GB）
-    storageLimit: 10, // 存储限制（GB）
-    classA: 0, // A类操作次数
-    classALimit: 1000000, // A类操作限制
-    classB: 0, // B类操作次数
-    classBLimit: 10000000 // B类操作限制
-  })
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -578,10 +570,8 @@ export default function App() {
             </div>
           </div>
           <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>
-            <div style={{ fontWeight: '500', marginBottom: '4px' }}>R2 使用情况:</div>
-            <div>存储: {r2Usage.storage.toFixed(2)}GB / {r2Usage.storageLimit}GB</div>
-            <div>A类操作: {r2Usage.classA.toLocaleString()} / {r2Usage.classALimit.toLocaleString()}</div>
-            <div>B类操作: {r2Usage.classB.toLocaleString()} / {r2Usage.classBLimit.toLocaleString()}</div>
+            <div style={{ fontWeight: '500', marginBottom: '4px' }}>存储使用情况:</div>
+            <div>{(totalUsed / (1024 * 1024 * 1024)).toFixed(4)} GB / 10 GB</div>
           </div>
         </div>
       </header>
