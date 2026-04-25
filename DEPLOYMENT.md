@@ -102,7 +102,10 @@ wrangler pages deploy dist
 ### 文件操作
 
 - **下载**: 点击文件快速下载
+- **文件夹打包下载**: 由后端打包为 ZIP Store 纯存储压缩包
+- **新建文件夹**: 创建时会写入 R2 目录标记对象
 - **删除**: 任何人都可以删除文件（无需密码）
+- **删除文件夹**: 会递归清理目录内文件和子目录标记
 - **浏览**: 支持点击文件夹进入、返回上级
 
 ## API 接口
@@ -129,6 +132,22 @@ wrangler pages deploy dist
 }
 ```
 
+目录通过 R2 中的 `目录名/` 空标记对象识别，因此空目录会保留。
+
+### POST /api/create-folder
+
+创建文件夹并写入目录标记。
+
+**参数:**
+- `path`: 文件夹路径
+
+**返回:**
+```json
+{
+  "success": true
+}
+```
+
 ### POST /api/upload
 
 上传文件
@@ -151,6 +170,9 @@ wrangler pages deploy dist
 
 **参数:**
 - `path`: 文件路径
+- `isDirectory`: 是否删除文件夹
+
+删除文件夹时会递归清理该目录下的全部子文件、子文件夹标记对象，并删除当前文件夹标记。
 
 **返回:**
 ```json
@@ -165,8 +187,9 @@ wrangler pages deploy dist
 
 **参数:**
 - `path`: 文件路径
+- `type`: 可选，`folder` 表示打包下载整个文件夹
 
-**返回:** 文件内容
+**返回:** 文件内容；文件夹时返回 ZIP Store 纯存储压缩包
 
 ### POST /api/verify-password
 
@@ -258,6 +281,7 @@ tmp-cloud/
 │   └── api/
 │       ├── list.js       # 获取文件列表
 │       ├── upload.js     # 上传文件
+│       ├── create-folder.js # 创建文件夹
 │       ├── delete.js     # 删除文件
 │       ├── download.js   # 下载文件
 │       └── verify-password.js  # 验证密码

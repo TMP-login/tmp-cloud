@@ -1,8 +1,39 @@
 // functions/api/list.js
+const normalizePath = (path = '') => path
+  .replace(/[<>:"|?*]/g, '_')
+  .replace(/\\+/g, '/')
+  .replace(/\/+/g, '/')
+  .replace(/^\/+/, '')
+  .replace(/\/+$/, '')
+
+const listAllObjects = async (bucket, prefix = '') => {
+  const objects = []
+  let cursor
+  let truncated = true
+
+  while (truncated) {
+    const result = await bucket.list({
+      prefix,
+      cursor,
+      limit: 1000
+    })
+
+    objects.push(...(result.objects || []))
+    truncated = Boolean(result.truncated)
+    cursor = result.cursor
+
+    if (!truncated || !cursor) {
+      break
+    }
+  }
+
+  return objects
+}
+
 export async function onRequestGet(context) {
   const { request, env } = context
   const url = new URL(request.url)
-  const path = url.searchParams.get('path') || ''
+  const path = normalizePath(url.searchParams.get('path') || '')
 
   try {
     const bucket = env.R2_BUCKET
@@ -10,84 +41,50 @@ export async function onRequestGet(context) {
       return new Response(JSON.stringify({ error: '存储未配置' }), { status: 500 })
     }
 
-    // 列出所有文件
-    const listResult = await bucket.list()
-    const allObjects = listResult.objects || []
-
-    // 构建虚拟目录树
+    const prefix = path ? `${path}/` : ''
+    const allObjects = await listAllObjects(bucket)
     const fileMap = new Map()
     let totalUsed = 0
 
     for (const obj of allObjects) {
-      const key = obj.key
-      totalUsed += obj.size
+      totalUsed += obj.size || 0
 
-      // 解析路径
-      const parts = key.split('/').filter(p => p)
-
-      if (parts.length === 0) continue
-
-      // 如果当前路径为空或匹配，才显示
-      if (path === '') {
-        // 根目录
-        const firstPart = parts[0]
-        if (parts.length === 1) {
-          // 根目录文件
-          fileMap.set(firstPart, {
-            name: firstPart,
-            size: obj.size,
-            uploaded: obj.uploaded,
-            isDirectory: false
-          })
-        } else {
-          // 根目录文件夹
-          if (!fileMap.has(firstPart)) {
-            fileMap.set(firstPart, {
-              name: firstPart,
-              isDirectory: true
-            })
-          }
-        }
-      } else {
-        // 非根目录
-        const pathParts = path.split('/').filter(p => p)
-        if (parts.length > pathParts.length) {
-          // 检查是否在当前路径下
-          let match = true
-          for (let i = 0; i < pathParts.length; i++) {
-            if (parts[i] !== pathParts[i]) {
-              match = false
-              break
-            }
-          }
-
-          if (match) {
-            const nextPart = parts[pathParts.length]
-            if (parts.length === pathParts.length + 1) {
-              // 当前目录的文件
-              fileMap.set(nextPart, {
-                name: nextPart,
-                size: obj.size,
-                uploaded: obj.uploaded,
-                isDirectory: false
-              })
-            } else {
-              // 当前目录的文件夹
-              if (!fileMap.has(nextPart)) {
-                fileMap.set(nextPart, {
-                  name: nextPart,
-                  isDirectory: true
-                })
-              }
-            }
-          }
-        }
+      if (prefix && !obj.key.startsWith(prefix)) {
+        continue
       }
+
+      const remainder = obj.key.slice(prefix.length)
+      if (!remainder) {
+        continue
+      }
+
+      const parts = remainder.split('/').filter(Boolean)
+      if (parts.length === 0) {
+        continue
+      }
+
+      const firstPart = parts[0]
+      const isDirectoryMarker = obj.key.endsWith('/')
+
+      if (parts.length === 1 && !isDirectoryMarker) {
+        fileMap.set(firstPart, {
+          name: firstPart,
+          size: obj.size,
+          uploaded: obj.uploaded,
+          isDirectory: false
+        })
+        continue
+      }
+
+      fileMap.set(firstPart, {
+        name: firstPart,
+        isDirectory: true
+      })
     }
 
     return new Response(JSON.stringify({
       files: Array.from(fileMap.values()),
-      totalUsed: totalUsed
+      totalUsed
     }), {
       headers: { 'Content-Type': 'application/json' }
     })

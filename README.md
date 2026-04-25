@@ -1,8 +1,6 @@
 # 📁 临时网盘 (TMP Cloud)
 
-> 无需登录、无数据库、完全免费的临时文件传输网盘
-
-基于 Cloudflare Pages + Functions + R2 构建，支持国内直接访问，永不扣费。
+> 无需登录、无数据库、基于 Cloudflare Pages + Functions + R2 的临时文件传输网盘。
 
 ## ✨ 核心特性
 
@@ -12,6 +10,7 @@
 | 💰 完全免费 | 仅使用 Cloudflare 免费额度 |
 | 🌍 国内可访问 | Pages Functions 同域部署 |
 | 📦 大文件支持 | 支持任意大小文件上传 |
+| 📁 文件夹实体化 | 目录会写入 R2 标记对象，空目录可保留 |
 | 🛡️ 安全有保障 | 密码存储在 Secrets，无硬编码 |
 | 📱 响应式设计 | 适配所有设备 |
 
@@ -44,11 +43,16 @@ chmod +x deploy.sh
 - [x] 拖拽上传
 - [x] 选择文件夹上传
 - [x] 嵌套文件夹保留完整路径
+- [x] 创建文件夹时写入 R2 目录标记对象
+- [x] 空文件夹在清空后仍会保留
+- [x] 支持目录层级固定留存
 - [x] 支持大文件无超时
 - [x] 自动检查空间并提示
 
 ### 下载和删除
 - [x] 点击文件直接下载
+- [x] 文件夹支持打包下载为 ZIP Store 纯存储模式
+- [x] 文件夹支持删除，自动清理全部子文件与子目录标记
 - [x] 删除文件无需密码
 - [x] 删除即时生效，空间立即释放
 
@@ -87,11 +91,12 @@ chmod +x deploy.sh
                      ↓
 ┌─────────────────────────────────────────┐
 │     Cloudflare Pages Functions          │
-│  • list.js       (获取文件列表)        │
-│  • upload.js     (上传文件)            │
-│  • download.js   (下载文件)            │
-│  • delete.js     (删除文件)            │
-│  • verify-password.js (验证密码)      │
+│  • list.js          (获取文件列表)      │
+│  • upload.js        (上传文件)          │
+│  • create-folder.js (创建文件夹)        │
+│  • download.js      (下载文件/目录)     │
+│  • delete.js        (删除文件/目录)     │
+│  • verify-password.js (验证密码)        │
 └─────────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────┐
@@ -130,8 +135,8 @@ chmod +x deploy.sh
 
 ✅ **权限模型**
 - 任何人都可以查看、下载、删除文件
-- 此设计适合临时文件传输场景
-- 生产环境可根据需求完善权限系统
+- 文件夹删除会递归清理子文件和目录标记
+- 文件夹下载由后端打包成 ZIP Store 压缩包
 
 ✅ **数据安全**
 - 文件直接存储在 Cloudflare R2，业界标准加密
@@ -140,66 +145,103 @@ chmod +x deploy.sh
 
 ---
 
-## 📝 使用示例
+## 📋 API 接口
 
-### 场景 1: 快速分享大文件
-```
-1. 打开网页
-2. 拖拽文件
-3. 复制分享链接
-4. 对方下载後自动删除 ✓
-```
+### GET /api/list
 
-### 场景 2: 团队临时协作
-```
-1. 一人上传项目文件
-2. 所有人可下载和查看
-3. 用完后任何人可删除
-4. 空间自动释放 ✓
-```
+获取文件列表。
 
-### 场景 3: 跨设备文件同步
-```
-1. 手机上传文件
-2. 电脑下载
-3. 平板查看
-4. 完成后删除 ✓
+**参数:**
+- `path`: 当前路径，默认根目录
+
+**返回:**
+```json
+{
+  "files": [
+    {
+      "name": "file.txt",
+      "size": 1024,
+      "uploaded": "2024-01-01T00:00:00Z",
+      "isDirectory": false
+    }
+  ],
+  "totalUsed": 5000000
+}
 ```
 
----
+目录通过 R2 中的 `目录名/` 空标记对象识别，空目录会保留并继续显示。
 
-## 💡 成本分析
+### POST /api/create-folder
 
-### Cloudflare 免费额度
-| 服务 | 免费额度 | 此项目用量 |
-|-----|--------|---------|
-| Pages | 无限 | ✓ |
-| Functions | 100,000 次/天 | ✓ |
-| R2 | 10 GB | 10 GB |
-| Secrets | 无限 | <1 KB |
+创建文件夹并写入目录标记。
 
-**结论**: 完全免费，永不扣费 🎉
+**参数:**
+- `path`: 文件夹路径
 
----
-
-## 🔧 配置修改
-
-### 更改密码
-```bash
-wrangler secret:bulk
-# 修改 UPLOAD_PASSWORD
+**返回:**
+```json
+{
+  "success": true
+}
 ```
 
-### 更改存储桶
-编辑 `wrangler.toml`:
-```toml
-bucket_name = "your-bucket-name"
+### POST /api/upload
+
+上传文件。
+
+**参数:**
+- `file`: 文件内容 (FormData)
+- `path`: 文件路径
+- `password`: 密码，空间不足时需要
+
+**返回:**
+```json
+{
+  "success": true
+}
 ```
 
-### 更改免费额度
-编辑 `src/App.jsx` 和 `functions/api/upload.js`:
-```javascript
-const LIMIT = 50 * 1024 * 1024 * 1024 // 改为 50GB
+### POST /api/delete
+
+删除文件或文件夹。
+
+**参数:**
+- `path`: 文件或文件夹路径
+- `isDirectory`: 是否删除文件夹
+
+文件夹删除会递归清理该目录下的全部子文件、子文件夹标记对象，并删除当前文件夹标记。
+
+**返回:**
+```json
+{
+  "success": true
+}
+```
+
+### GET /api/download
+
+下载文件或文件夹。
+
+**参数:**
+- `path`: 文件或文件夹路径
+- `type`: 可选，`folder` 时表示打包下载整个文件夹
+
+**返回:**
+- 文件时返回原始文件内容
+- 文件夹时返回 ZIP Store 纯存储压缩包
+
+### POST /api/verify-password
+
+验证密码。
+
+**参数:**
+- `password`: 密码
+
+**返回:**
+```json
+{
+  "success": true
+}
 ```
 
 ---
@@ -225,54 +267,3 @@ const LIMIT = 50 * 1024 * 1024 * 1024 // 改为 50GB
 | 文件上传失败 | 检查网络连接和浏览器控制台错误 |
 
 详见 [DEPLOYMENT.md#故障排除](./DEPLOYMENT.md#故障排除)
-
----
-
-## 📄 项目结构
-
-```
-tmp-cloud/
-├── src/                    # 前端源代码
-│   ├── App.jsx            # 主应用组件
-│   ├── main.jsx           # React 入口
-│   └── index.css          # 全局样式
-├── functions/api/         # Cloudflare Functions
-│   ├── list.js            # 获取文件列表
-│   ├── upload.js          # 处理上传
-│   ├── download.js        # 处理下载
-│   ├── delete.js          # 处理删除
-│   └── verify-password.js # 密码验证
-├── public/                # 静态资源
-├── index.html             # HTML 入口
-├── vite.config.js         # Vite 配置
-├── wrangler.toml          # Cloudflare 配置
-├── package.json           # NPM 配置
-├── QUICKSTART.md          # 快速开始
-├── DEPLOYMENT.md          # 部署指南
-└── README.md              # 本文件
-```
-
----
-
-## 📞 支持
-
-遇到问题? 检查:
-1. [快速启动指南](./QUICKSTART.md)
-2. [完整部署指南](./DEPLOYMENT.md)
-3. Cloudflare 控制面板的部署日志
-
----
-
-## 📜 许可证
-
-MIT License
-
----
-
-## 🙏 贡献
-
-欢迎贡献代码、报告 Bug 或建议新功能！
-
----
-
-**💬 需要帮助?** 查看文档或在 GitHub Issue 中提问。

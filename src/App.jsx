@@ -171,6 +171,47 @@ export default function App() {
     }
   }
 
+  const sanitizeFolderName = (name) => name
+    .trim()
+    .replace(/[<>:"|?*]/g, '_')
+    .replace(/[\\/]+/g, '_')
+
+  const handleCreateFolder = async () => {
+    const rawName = window.prompt('请输入文件夹名称')
+    if (rawName === null) return
+
+    const folderName = sanitizeFolderName(rawName)
+    if (!folderName) {
+      alert('文件夹名称不能为空')
+      return
+    }
+
+    if (files.some(file => file.name === folderName)) {
+      alert('同名文件或文件夹已存在')
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_PREFIX}/create-folder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: currentPath ? `${currentPath}/${folderName}` : folderName
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || '创建文件夹失败')
+      }
+
+      setSuccessMessage('文件夹已创建')
+      fetchFiles()
+    } catch (error) {
+      alert('创建文件夹失败: ' + error.message)
+    }
+  }
+
   // 处理密码验证上传
   const handlePasswordUpload = async () => {
     if (!password) {
@@ -198,15 +239,16 @@ export default function App() {
   }
 
   // 删除文件
-  const handleDelete = async (fileName) => {
-    if (!confirm('确定要删除此文件吗？')) return
+  const handleDelete = async (fileName, isDirectory = false) => {
+    if (!confirm(isDirectory ? '确定要删除此文件夹及其全部内容吗？' : '确定要删除此文件吗？')) return
 
     try {
       const response = await fetch(`${API_PREFIX}/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          path: currentPath ? currentPath + '/' + fileName : fileName
+          path: currentPath ? currentPath + '/' + fileName : fileName,
+          isDirectory
         })
       })
 
@@ -222,9 +264,9 @@ export default function App() {
   }
 
   // 下载文件
-  const handleDownload = (fileName) => {
+  const handleDownload = (fileName, isDirectory = false) => {
     const path = currentPath ? currentPath + '/' + fileName : fileName
-    window.location.href = `${API_PREFIX}/download?path=${encodeURIComponent(path)}`
+    window.location.href = `${API_PREFIX}/download?path=${encodeURIComponent(path)}${isDirectory ? '&type=folder' : ''}`
   }
 
   // 进入文件夹
@@ -323,6 +365,9 @@ export default function App() {
               📁 选择文件夹
               <input type="file" directory="" onChange={handleFolderSelect} webkitdirectory="" disabled={uploading} />
             </label>
+            <button className="create-folder-button" onClick={handleCreateFolder} disabled={uploading}>
+              📁 新建文件夹
+            </button>
           </div>
           {uploading && (
             <div className="progress-bar">
@@ -345,6 +390,10 @@ export default function App() {
                 <div key={folder.name} className="file-item folder-item">
                   <div className="file-info" onClick={() => enterFolder(folder.name)}>
                     <span className="file-name">📁 {folder.name}</span>
+                  </div>
+                  <div className="file-actions">
+                    <button onClick={(e) => { e.stopPropagation(); handleDownload(folder.name, true) }} className="btn-download">⬇️ 打包下载</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.name, true) }} className="btn-delete">🗑️ 删除</button>
                   </div>
                 </div>
               ))}

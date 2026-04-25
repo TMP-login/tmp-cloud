@@ -165,7 +165,8 @@ html, body, #root {
 }
 
 .file-input-label,
-.folder-input-label {
+.folder-input-label,
+.create-folder-button {
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   border: none;
@@ -178,7 +179,8 @@ html, body, #root {
 }
 
 .file-input-label:hover,
-.folder-input-label:hover {
+.folder-input-label:hover,
+.create-folder-button:hover {
   transform: translateY(-2px);
 }
 
@@ -187,6 +189,7 @@ html, body, #root {
   display: none;
 }
 
+.create-folder-button:disabled,
 .file-input-label:has(input:disabled),
 .folder-input-label:has(input:disabled) {
   opacity: 0.6;
@@ -253,6 +256,10 @@ html, body, #root {
 .file-item.folder-item {
   background: #f5f5ff;
   border-color: #e0d4ff;
+}
+
+.file-item.folder-item .file-info {
+  cursor: pointer;
 }
 
 .file-item.folder-item .file-name {
