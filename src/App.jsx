@@ -551,14 +551,31 @@ export default function App() {
         </div>
       )}
 
-      <header className="header">
-        <h1>📁 临时网盘</h1>
-        <p className="space-info">
-          已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
-          <span className={`space-bar ${totalUsed > LIMIT * 0.8 ? 'warning' : ''}`}>
-            <span style={{ width: Math.min(100, (totalUsed / LIMIT) * 100) + '%' }}></span>
-          </span>
-        </p>
+      <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
+        <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>📁 临时网盘</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+              已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
+            </div>
+            <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
+              <div 
+                style={{ 
+                  height: '100%', 
+                  background: totalUsed > LIMIT * 0.8 ? '#ff6b6b' : '#667eea',
+                  width: Math.min(100, (totalUsed / LIMIT) * 100) + '%',
+                  transition: 'width 0.3s'
+                }}
+              ></div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>
+            <div>R2 免费额度:</div>
+            <div>存储: 10GB/月</div>
+            <div>A类操作: 100万次/月</div>
+            <div>B类操作: 1000万次/月</div>
+          </div>
+        </div>
       </header>
 
       <nav className="breadcrumb" style={{ backgroundColor: '#f0f7ff', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #1890ff', margin: '20px' }}>
