@@ -500,7 +500,7 @@ export default function App() {
         <div
           className="context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
         >
           <button onClick={triggerFileSelect}>📄 上传文件</button>
           <button onClick={triggerFolderSelect}>📁 上传文件夹</button>

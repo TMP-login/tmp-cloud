@@ -318,8 +318,9 @@ html, body, #root {
 .file-info {
   flex: 1;
   display: flex;
-  gap: 15px;
+  gap: 20px;
   align-items: center;
+  margin-right: 20px;
 }
 
 .file-name {
@@ -332,20 +333,21 @@ html, body, #root {
 .file-size {
   color: #999;
   font-size: 12px;
-  min-width: 60px;
+  min-width: 70px;
   text-align: right;
 }
 
 .file-date {
   color: #999;
   font-size: 12px;
-  min-width: 160px;
+  min-width: 170px;
   text-align: right;
 }
 
 .file-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  white-space: nowrap;
 }
 
 .btn-download,
