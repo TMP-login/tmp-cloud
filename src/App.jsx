@@ -16,8 +16,10 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0 })
   const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
   const [renamingFolder, setRenamingFolder] = useState(null)
+  const [renamingValue, setRenamingValue] = useState('')
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
+  const renameInputRef = useRef(null)
 
   const LIMIT = 10 * 1024 * 1024 * 1024 // 10GB
 
@@ -50,6 +52,16 @@ export default function App() {
     const timer = setTimeout(() => setNotice({ message: '', type: 'success' }), 2400)
     return () => clearTimeout(timer)
   }, [notice])
+
+  useEffect(() => {
+    if (renamingFolder && renameInputRef.current) {
+      // 聚焦输入框并选择所有文本
+      setTimeout(() => {
+        renameInputRef.current.focus()
+        renameInputRef.current.select()
+      }, 100)
+    }
+  }, [renamingFolder])
 
   useEffect(() => {
     const handleGlobalClose = () => {
@@ -156,6 +168,7 @@ export default function App() {
       showNotice('文件夹已创建', 'success')
       await fetchFiles()
       // 设置为重命名状态
+      setRenamingValue(folderName)
       setRenamingFolder(folderName)
     } catch (error) {
       showNotice('创建文件夹失败: ' + error.message, 'error')
@@ -451,6 +464,66 @@ export default function App() {
     folderInputRef.current?.click()
   }
 
+  // 处理文件夹重命名
+  const handleRenameComplete = async () => {
+    if (!renamingFolder || !renamingValue.trim()) {
+      setRenamingFolder(null)
+      setRenamingValue('')
+      return
+    }
+
+    const sanitizedName = sanitizeFolderName(renamingValue)
+    if (sanitizedName !== renamingFolder) {
+      // 检查是否已存在同名文件夹
+      if (files.some(file => file.name === sanitizedName && file.isDirectory)) {
+        showNotice('同名文件夹已存在', 'error')
+        return
+      }
+
+      try {
+        // 先删除原文件夹
+        await fetch(`${API_PREFIX}/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: currentPath ? currentPath + '/' + renamingFolder : renamingFolder,
+            isDirectory: true
+          })
+        })
+
+        // 再创建新文件夹
+        await fetch(`${API_PREFIX}/create-folder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: currentPath ? currentPath + '/' + sanitizedName : sanitizedName
+          })
+        })
+
+        showNotice('文件夹重命名成功', 'success')
+        await fetchFiles()
+      } catch (error) {
+        showNotice('重命名失败: ' + error.message, 'error')
+      }
+    }
+
+    setRenamingFolder(null)
+    setRenamingValue('')
+  }
+
+  const handleRenameCancel = () => {
+    setRenamingFolder(null)
+    setRenamingValue('')
+  }
+
+  const handleRenameKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleRenameComplete()
+    } else if (e.key === 'Escape') {
+      handleRenameCancel()
+    }
+  }
+
   // 分离文件夹和文件
   const folders = files.filter(f => f.isDirectory).sort((a, b) => a.name.localeCompare(b.name))
   const regularFiles = files.filter(f => !f.isDirectory).sort((a, b) => a.name.localeCompare(b.name))
@@ -508,8 +581,29 @@ export default function App() {
             <>
               {folders.map(folder => (
                 <div key={folder.name} className="file-item folder-item">
-                  <div className="file-info" onClick={() => enterFolder(folder.name)}>
-                    <span className="file-name">📁 {folder.name}</span>
+                  <div className="file-info">
+                    {renamingFolder === folder.name ? (
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={renamingValue}
+                        onChange={(e) => setRenamingValue(e.target.value)}
+                        onBlur={handleRenameComplete}
+                        onKeyDown={handleRenameKeyDown}
+                        className="rename-input"
+                        style={{
+                          border: '1px solid #667eea',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          color: '#333',
+                          width: '200px'
+                        }}
+                      />
+                    ) : (
+                      <span className="file-name" onClick={() => enterFolder(folder.name)}>📁 {folder.name}</span>
+                    )}
                   </div>
                   <div className="file-actions">
                     <button onClick={(e) => { e.stopPropagation(); handleDownload(folder.name, true) }} className="btn-download">⬇️ 打包下载</button>
