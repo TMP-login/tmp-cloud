@@ -561,12 +561,16 @@ export default function App() {
         </p>
       </header>
 
-      <nav className="breadcrumb">
-        <button onClick={goRoot}>首页</button>
+      <nav className="breadcrumb" style={{ backgroundColor: '#f0f7ff', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #1890ff', margin: '0 20px 20px' }}>
+        <button onClick={goRoot} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
+          首页
+        </button>
         {currentPath.split('/').filter(p => p).map((part, idx, arr) => (
           <React.Fragment key={idx}>
-            <span> / </span>
-            <button onClick={() => navigateTo(arr.slice(0, idx + 1).join('/'))}>{part}</button>
+            <span style={{ color: '#91d5ff' }}> / </span>
+            <button onClick={() => navigateTo(arr.slice(0, idx + 1).join('/'))} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
+              {part}
+            </button>
           </React.Fragment>
         ))}
       </nav>
@@ -581,46 +585,137 @@ export default function App() {
             <>
               {folders.map(folder => (
                 <div key={folder.name} className="file-item folder-item">
-                  <div className="file-info">
-                    {renamingFolder === folder.name ? (
-                      <input
-                        ref={renameInputRef}
-                        type="text"
-                        value={renamingValue}
-                        onChange={(e) => setRenamingValue(e.target.value)}
-                        onBlur={handleRenameComplete}
-                        onKeyDown={handleRenameKeyDown}
-                        className="rename-input"
-                        style={{
-                          border: '1px solid #667eea',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          fontSize: '14px',
-                          fontWeight: '500',
-                          color: '#333',
-                          width: '200px'
-                        }}
-                      />
-                    ) : (
-                      <span className="file-name" onClick={() => enterFolder(folder.name)}>📁 {folder.name}</span>
-                    )}
+                  <div className="file-info" style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '16px' }}>
+                    <span style={{ fontSize: '18px' }}>📁</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ marginBottom: '4px' }}>
+                        {renamingFolder === folder.name ? (
+                          <input
+                            ref={renameInputRef}
+                            type="text"
+                            value={renamingValue}
+                            onChange={(e) => setRenamingValue(e.target.value)}
+                            onBlur={handleRenameComplete}
+                            onKeyDown={handleRenameKeyDown}
+                            style={{
+                              border: '1px solid #667eea',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              fontSize: '14px',
+                              fontWeight: '500',
+                              color: '#333',
+                              width: '200px'
+                            }}
+                          />
+                        ) : (
+                          <span 
+                            style={{ 
+                              cursor: 'pointer',
+                              fontWeight: '500',
+                              color: '#1890ff',
+                              display: 'block',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
+                            onClick={() => enterFolder(folder.name)}
+                          >
+                            {folder.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="file-actions">
-                    <button onClick={(e) => { e.stopPropagation(); handleDownload(folder.name, true) }} className="btn-download">⬇️ 打包下载</button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.name, true) }} className="btn-delete">🗑️ 删除</button>
+                  <div className="file-actions" style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDownload(folder.name, true) }} 
+                      style={{ 
+                        background: 'white',
+                        border: '1px solid #e0e0e0',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        transition: 'all 0.2s',
+                        minWidth: '80px'
+                      }}
+                    >
+                      ⬇️ 打包下载
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDelete(folder.name, true) }} 
+                      style={{ 
+                        background: 'white',
+                        border: '1px solid #e0e0e0',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        transition: 'all 0.2s',
+                        minWidth: '60px'
+                      }}
+                    >
+                      🗑️ 删除
+                    </button>
                   </div>
                 </div>
               ))}
               {regularFiles.map(file => (
                 <div key={file.name} className="file-item">
-                  <div className="file-info">
-                    <span className="file-name">📄 {file.name}</span>
-                    <span className="file-size">{formatSize(file.size)}</span>
-                    <span className="file-date">{formatDate(file.uploaded)}</span>
+                  <div className="file-info" style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '16px' }}>
+                    <span style={{ fontSize: '18px' }}>📄</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ marginBottom: '4px' }}>
+                        <span 
+                          style={{ 
+                            fontWeight: '500',
+                            color: '#333',
+                            display: 'block',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {file.name}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '16px', color: '#666', fontSize: '12px' }}>
+                        <span style={{ flexShrink: 0, minWidth: '80px' }}>{formatSize(file.size)}</span>
+                        <span style={{ flexShrink: 0, minWidth: '160px' }}>{formatDate(file.uploaded)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="file-actions">
-                    <button onClick={() => handleDownload(file.name)} className="btn-download">⬇️ 下载</button>
-                    <button onClick={() => handleDelete(file.name)} className="btn-delete">🗑️ 删除</button>
+                  <div className="file-actions" style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
+                    <button 
+                      onClick={() => handleDownload(file.name)} 
+                      style={{ 
+                        background: 'white',
+                        border: '1px solid #e0e0e0',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        transition: 'all 0.2s',
+                        minWidth: '80px'
+                      }}
+                    >
+                      ⬇️ 下载
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(file.name)} 
+                      style={{ 
+                        background: 'white',
+                        border: '1px solid #e0e0e0',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        transition: 'all 0.2s',
+                        minWidth: '60px'
+                      }}
+                    >
+                      🗑️ 删除
+                    </button>
                   </div>
                 </div>
               ))}
