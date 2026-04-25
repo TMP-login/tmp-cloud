@@ -33,6 +33,8 @@ export default function App() {
     }
   })
   const [docEntries, setDocEntries] = useState([''])
+  const [isModified, setIsModified] = useState(false)
+  const [autoSaveTimer, setAutoSaveTimer] = useState(null)
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -55,6 +57,61 @@ export default function App() {
       console.error('获取 R2 使用情况失败:', error)
     }
   }
+
+  // 保存文档
+  const saveDoc = async () => {
+    try {
+      const entriesToSave = docEntries.filter(e => e.trim() !== '')
+      const jsonContent = JSON.stringify({ entries: entriesToSave }, null, 2)
+
+      const formData = new FormData()
+      const blob = new Blob([jsonContent], { type: 'text/plain' })
+      formData.append('file', blob, 'notes.json')
+      formData.append('path', 'notes.json')
+
+      const response = await fetch(`${API_PREFIX}/upload`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        setIsModified(false)
+        showNotice('已保存', 'success')
+      } else {
+        const error = await response.text()
+        showNotice('保存失败: ' + error, 'error')
+      }
+    } catch (error) {
+      console.error('保存文档失败:', error)
+      showNotice('保存失败', 'error')
+    }
+  }
+
+  // 手动保存
+  const handleManualSave = async () => {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer)
+      setAutoSaveTimer(null)
+    }
+    await saveDoc()
+  }
+
+  // 自动保存（防抖）
+  useEffect(() => {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer)
+    }
+
+    const timer = setTimeout(() => {
+      saveDoc()
+    }, 2000) // 2秒后自动保存
+
+    setAutoSaveTimer(timer)
+
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [docEntries])
 
   // 保存单条条目
   const saveSingleEntry = async (index) => {
@@ -110,31 +167,13 @@ export default function App() {
     try {
       const newEntries = docEntries.filter((_, i) => i !== index)
       
-      // 保存删除后的数据
-      const entriesToSave = newEntries.filter(e => e.trim() !== '')
-      const jsonContent = JSON.stringify({ entries: entriesToSave }, null, 2)
-
-      const formData = new FormData()
-      const blob = new Blob([jsonContent], { type: 'text/plain' })
-      formData.append('file', blob, 'notes.json')
-      formData.append('path', 'notes.json')
-
-      const response = await fetch(`${API_PREFIX}/upload`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        // 如果删除后没有空条目，添加一个
-        if (newEntries.length === 0 || newEntries[newEntries.length - 1].trim() !== '') {
-          newEntries.push('')
-        }
-        setDocEntries(newEntries)
-        showNotice('删除成功', 'success')
-      } else {
-        const error = await response.text()
-        showNotice('删除失败: ' + error, 'error')
+      // 如果删除后没有空条目，添加一个
+      if (newEntries.length === 0 || newEntries[newEntries.length - 1].trim() !== '') {
+        newEntries.push('')
       }
+      setDocEntries(newEntries)
+      setIsModified(true)
+      showNotice('删除成功', 'success')
     } catch (error) {
       console.error('删除条目失败:', error)
       showNotice('删除失败', 'error')
@@ -171,6 +210,7 @@ export default function App() {
         response = await fetch(`${API_PREFIX}/download?path=notes.json`)
         if (!response.ok) {
           setDocEntries([''])
+          setIsModified(false)
           return
         }
       }
@@ -184,15 +224,19 @@ export default function App() {
             entries.push('')
           }
           setDocEntries(entries)
+          setIsModified(false)
         } else {
           setDocEntries([''])
+          setIsModified(false)
         }
       } catch {
         setDocEntries([''])
+        setIsModified(false)
       }
     } catch (error) {
       console.error('加载文档失败:', error)
       setDocEntries([''])
+      setIsModified(false)
     } finally {
       setLoading(false)
     }
@@ -953,6 +997,23 @@ export default function App() {
             <div className="loading">加载中...</div>
           ) : (
             <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
+                <button
+                  onClick={handleManualSave}
+                  style={{
+                    padding: '8px 16px',
+                    background: isModified ? '#1890ff' : '#d9d9d9',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: isModified ? 'pointer' : 'default',
+                    fontSize: '14px'
+                  }}
+                  disabled={!isModified}
+                >
+                  {isModified ? '💾 手动保存' : '✓ 已保存'}
+                </button>
+              </div>
               {/* 条目列表 */}
               <div>
                 {docEntries.map((entry, index) => (
@@ -963,6 +1024,7 @@ export default function App() {
                         const newEntries = [...docEntries]
                         newEntries[index] = e.target.value
                         setDocEntries(newEntries)
+                        setIsModified(true)
                         // 自动调整高度
                         e.target.style.height = 'auto'
                         e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
@@ -987,22 +1049,6 @@ export default function App() {
                         overflow: 'hidden'
                       }}
                     />
-                    <button
-                      onClick={() => saveSingleEntry(index)}
-                      style={{
-                        padding: '8px 16px',
-                        background: '#52c41a',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        height: '32px',
-                        flexShrink: 0
-                      }}
-                    >
-                      ✓
-                    </button>
                     <button
                       onClick={() => deleteSingleEntry(index)}
                       style={{
