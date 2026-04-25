@@ -15,6 +15,7 @@ export default function App() {
   const [notice, setNotice] = useState({ message: '', type: 'success' })
   const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0 })
   const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
+  const [renamingFolder, setRenamingFolder] = useState(null)
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
 
@@ -120,7 +121,45 @@ export default function App() {
 
   const openCreateDialog = (type) => {
     setContextMenu(prev => ({ ...prev, open: false }))
-    setCreateDialog({ open: true, type, name: '' })
+    if (type === 'folder') {
+      createFolderDirectly()
+    } else {
+      setCreateDialog({ open: true, type, name: '' })
+    }
+  }
+
+  const createFolderDirectly = async () => {
+    // 生成唯一的文件夹名称
+    let folderName = '新建文件夹'
+    let counter = 1
+    
+    // 检查是否已存在同名文件夹
+    while (files.some(file => file.name === folderName && file.isDirectory)) {
+      folderName = `新建文件夹 (${counter})`
+      counter++
+    }
+
+    try {
+      const response = await fetch(`${API_PREFIX}/create-folder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: currentPath ? `${currentPath}/${folderName}` : folderName
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || '创建文件夹失败')
+      }
+
+      showNotice('文件夹已创建', 'success')
+      await fetchFiles()
+      // 设置为重命名状态
+      setRenamingFolder(folderName)
+    } catch (error) {
+      showNotice('创建文件夹失败: ' + error.message, 'error')
+    }
   }
 
   // 处理上传
@@ -548,6 +587,23 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 隐藏的文件输入元素 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        webkitdirectory
+        directory
+        onChange={handleFolderSelect}
+        style={{ display: 'none' }}
+      />
     </div>
   )
 }
