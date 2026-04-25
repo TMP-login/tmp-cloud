@@ -975,15 +975,15 @@ export default function App() {
                       placeholder={`条目 ${index + 1}`}
                       style={{
                         flex: 1,
-                        padding: '12px 16px',
+                        padding: '8px 12px',
                         border: '1px solid #d9d9d9',
                         borderRadius: '4px',
                         fontSize: '14px',
-                        minHeight: '44px',
+                        minHeight: '32px',
                         maxHeight: '200px',
                         resize: 'none',
                         fontFamily: 'inherit',
-                        lineHeight: '1.5',
+                        lineHeight: '1.4',
                         overflow: 'hidden'
                       }}
                     />
@@ -997,7 +997,7 @@ export default function App() {
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontSize: '14px',
-                        marginTop: '2px',
+                        height: '32px',
                         flexShrink: 0
                       }}
                     >
@@ -1013,7 +1013,7 @@ export default function App() {
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontSize: '14px',
-                        marginTop: '2px',
+                        height: '32px',
                         flexShrink: 0
                       }}
                     >
