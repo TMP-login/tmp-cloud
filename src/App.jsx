@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 const API_PREFIX = '/api'
 
 export default function App() {
+  const [activeNav, setActiveNav] = useState('drive') // 'drive' or 'docs'
   const [files, setFiles] = useState([])
   const [currentPath, setCurrentPath] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,6 +32,9 @@ export default function App() {
       percentage: 0
     }
   })
+  const [txtFiles, setTxtFiles] = useState([])
+  const [selectedTxtFile, setSelectedTxtFile] = useState(null)
+  const [txtFileContent, setTxtFileContent] = useState('')
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -51,6 +55,41 @@ export default function App() {
       }
     } catch (error) {
       console.error('获取 R2 使用情况失败:', error)
+    }
+  }
+
+  // 获取所有 TXT 文件
+  const fetchTxtFiles = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_PREFIX}/list?path=`)
+      const data = await response.json()
+      if (data.files) {
+        // 过滤出所有 TXT 文件
+        const txts = data.files.filter(file => file.name.toLowerCase().endsWith('.txt'))
+        setTxtFiles(txts)
+      }
+    } catch (error) {
+      console.error('获取 TXT 文件列表失败:', error)
+      showNotice('获取 TXT 文件列表失败', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 查看 TXT 文件内容
+  const viewTxtFile = async (file) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_PREFIX}/download?path=${encodeURIComponent(file.name)}`)
+      const content = await response.text()
+      setSelectedTxtFile(file)
+      setTxtFileContent(content)
+    } catch (error) {
+      console.error('获取 TXT 文件内容失败:', error)
+      showNotice('获取 TXT 文件内容失败', 'error')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -77,6 +116,12 @@ export default function App() {
   useEffect(() => {
     fetchR2Usage()
   }, [])
+
+  useEffect(() => {
+    if (activeNav === 'docs') {
+      fetchTxtFiles()
+    }
+  }, [activeNav])
 
   useEffect(() => {
     if (!notice.message) return
@@ -583,185 +628,294 @@ export default function App() {
       )}
 
       <header className="header" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>📁 临时网盘</h1>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
-              已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
-            </div>
-            <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
-              <div 
-                style={{ 
-                  height: '100%', 
-                  background: totalUsed > LIMIT * 0.8 ? '#ff6b6b' : '#667eea',
-                  width: Math.min(100, (totalUsed / LIMIT) * 100) + '%',
-                  transition: 'width 0.3s'
-                }}
-              ></div>
-            </div>
+        <div style={{ marginBottom: '20px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#333', marginBottom: '15px' }}>📁 临时网盘</h1>
+          <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>
+            <button 
+              onClick={() => setActiveNav('drive')}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '16px',
+                color: activeNav === 'drive' ? '#1890ff' : '#666',
+                cursor: 'pointer',
+                padding: '8px 16px',
+                borderRadius: '4px 4px 0 0',
+                borderBottom: activeNav === 'drive' ? '2px solid #1890ff' : 'none'
+              }}
+            >
+              临时网盘
+            </button>
+            <button 
+              onClick={() => setActiveNav('docs')}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '16px',
+                color: activeNav === 'docs' ? '#1890ff' : '#666',
+                cursor: 'pointer',
+                padding: '8px 16px',
+                borderRadius: '4px 4px 0 0',
+                borderBottom: activeNav === 'docs' ? '2px solid #1890ff' : 'none'
+              }}
+            >
+              临时文档
+            </button>
           </div>
         </div>
+        {activeNav === 'drive' && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
+              </div>
+              <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
+                <div 
+                  style={{ 
+                    height: '100%', 
+                    background: totalUsed > LIMIT * 0.8 ? '#ff6b6b' : '#667eea',
+                    width: Math.min(100, (totalUsed / LIMIT) * 100) + '%',
+                    transition: 'width 0.3s'
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
-      <nav className="breadcrumb" style={{ backgroundColor: '#f0f7ff', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #1890ff', margin: '20px' }}>
-        <button onClick={goRoot} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
-          首页
-        </button>
-        {currentPath.split('/').filter(p => p).map((part, idx, arr) => (
-          <React.Fragment key={idx}>
-            <span style={{ color: '#91d5ff' }}> / </span>
-            <button onClick={() => navigateTo(arr.slice(0, idx + 1).join('/'))} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
-              {part}
+      {activeNav === 'drive' && (
+        <>
+          <nav className="breadcrumb" style={{ backgroundColor: '#f0f7ff', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #1890ff', margin: '20px' }}>
+            <button onClick={goRoot} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
+              首页
             </button>
-          </React.Fragment>
-        ))}
-      </nav>
+            {currentPath.split('/').filter(p => p).map((part, idx, arr) => (
+              <React.Fragment key={idx}>
+                <span style={{ color: '#91d5ff' }}> / </span>
+                <button onClick={() => navigateTo(arr.slice(0, idx + 1).join('/'))} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
+                  {part}
+                </button>
+              </React.Fragment>
+            ))}
+          </nav>
 
-      {loading ? (
-        <div className="loading">加载中...</div>
-      ) : (
-        <div className="file-list" style={{ margin: '0 20px 20px' }}>
-          {folders.length === 0 && regularFiles.length === 0 ? (
-            <p className="empty">右键空白处上传或创建内容</p>
+          {loading ? (
+            <div className="loading">加载中...</div>
           ) : (
-            <>
-              {folders.map(folder => (
-                <div key={folder.name} className="file-item folder-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f5f5ff', border: '1px solid #e0d4ff', borderRadius: '8px', marginBottom: '10px', transition: 'all 0.2s' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: '18px' }}>📁</span>
-                    <span 
-                      style={{ 
-                        cursor: 'pointer',
-                        fontWeight: '500',
-                        color: '#1890ff',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        flex: 1
-                      }}
-                      onClick={() => enterFolder(folder.name)}
-                    >
-                      {folder.name}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap', marginLeft: '16px' }}>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleDownload(folder.name, true) }} 
-                      style={{ 
-                        background: 'white',
-                        border: '1px solid #e0e0e0',
-                        padding: '6px 12px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        transition: 'all 0.2s',
-                        minWidth: '100px'
-                      }}
-                    >
-                      ⬇️ 打包下载
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleDelete(folder.name, true) }} 
-                      style={{ 
-                        background: 'white',
-                        border: '1px solid #e0e0e0',
-                        padding: '6px 12px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        transition: 'all 0.2s',
-                        minWidth: '60px'
-                      }}
-                    >
-                      🗑️ 删除
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {regularFiles.map(file => (
-                <div key={file.name} className="file-item" style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  padding: '14px 16px', 
-                  background: 'white', 
-                  border: '1px solid #e0e0e0', 
-                  borderRadius: '8px', 
-                  marginBottom: '10px', 
-                  transition: 'all 0.2s',
-                  flexWrap: 'wrap'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, marginBottom: '8px' }}>
-                    <span style={{ fontSize: '18px' }}>📄</span>
-                    <span 
-                      style={{ 
-                        fontWeight: '500',
-                        color: '#333',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        flex: 1,
-                        minWidth: '100px'
-                      }}
-                    >
-                      {file.name}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', whiteSpace: 'nowrap', width: '100%', justifyContent: 'flex-end' }}>
-                    <div style={{ display: 'flex', gap: '10px', color: '#666', fontSize: '12px', marginRight: '16px' }}>
-                      <span style={{ flexShrink: 0, minWidth: '70px', textAlign: 'right' }}>{formatSize(file.size)}</span>
-                      <span style={{ flexShrink: 0, minWidth: '140px', textAlign: 'right' }}>{formatDate(file.uploaded)}</span>
+            <div className="file-list" style={{ margin: '0 20px 20px' }}>
+              {folders.length === 0 && regularFiles.length === 0 ? (
+                <p className="empty">右键空白处上传或创建内容</p>
+              ) : (
+                <>
+                  {folders.map(folder => (
+                    <div key={folder.name} className="file-item folder-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f5f5ff', border: '1px solid #e0d4ff', borderRadius: '8px', marginBottom: '10px', transition: 'all 0.2s' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: '18px' }}>📁</span>
+                        <span 
+                          style={{ 
+                            cursor: 'pointer',
+                            fontWeight: '500',
+                            color: '#1890ff',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            flex: 1
+                          }}
+                          onClick={() => enterFolder(folder.name)}
+                        >
+                          {folder.name}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap', marginLeft: '16px' }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDownload(folder.name, true) }} 
+                          style={{ 
+                            background: 'white',
+                            border: '1px solid #e0e0e0',
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            transition: 'all 0.2s',
+                            minWidth: '100px'
+                          }}
+                        >
+                          ⬇️ 打包下载
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(folder.name, true) }} 
+                          style={{ 
+                            background: 'white',
+                            border: '1px solid #e0e0e0',
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            transition: 'all 0.2s',
+                            minWidth: '60px'
+                          }}
+                        >
+                          🗑️ 删除
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
-                      <button 
-                        onClick={() => handleDownload(file.name)} 
-                        style={{ 
-                          background: 'white',
-                          border: '1px solid #e0e0e0',
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          transition: 'all 0.2s',
-                          minWidth: '100px'
-                        }}
-                      >
-                        ⬇️ 下载
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(file.name)} 
-                        style={{ 
-                          background: 'white',
-                          border: '1px solid #e0e0e0',
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          transition: 'all 0.2s',
-                          minWidth: '60px'
-                        }}
-                      >
-                        🗑️ 删除
-                      </button>
+                  ))}
+                  {regularFiles.map(file => (
+                    <div key={file.name} className="file-item" style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      padding: '14px 16px', 
+                      background: 'white', 
+                      border: '1px solid #e0e0e0', 
+                      borderRadius: '8px', 
+                      marginBottom: '10px', 
+                      transition: 'all 0.2s',
+                      flexWrap: 'wrap'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, marginBottom: '8px' }}>
+                        <span style={{ fontSize: '18px' }}>📄</span>
+                        <span 
+                          style={{ 
+                            fontWeight: '500',
+                            color: '#333',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            flex: 1,
+                            minWidth: '100px'
+                          }}
+                        >
+                          {file.name}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', whiteSpace: 'nowrap', width: '100%', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: '10px', color: '#666', fontSize: '12px', marginRight: '16px' }}>
+                          <span style={{ flexShrink: 0, minWidth: '70px', textAlign: 'right' }}>{formatSize(file.size)}</span>
+                          <span style={{ flexShrink: 0, minWidth: '140px', textAlign: 'right' }}>{formatDate(file.uploaded)}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
+                          <button 
+                            onClick={() => handleDownload(file.name)} 
+                            style={{ 
+                              background: 'white',
+                              border: '1px solid #e0e0e0',
+                              padding: '6px 12px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              transition: 'all 0.2s',
+                              minWidth: '100px'
+                            }}
+                          >
+                            ⬇️ 下载
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(file.name)} 
+                            style={{ 
+                              background: 'white',
+                              border: '1px solid #e0e0e0',
+                              padding: '6px 12px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              transition: 'all 0.2s',
+                              minWidth: '60px'
+                            }}
+                          >
+                            🗑️ 删除
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </>
+                  ))}
+                </>
+              )}
+            </div>
           )}
-        </div>
+
+          {contextMenu.open && (
+            <div
+              className="context-menu"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              <button onClick={triggerFileSelect}>📄 上传文件</button>
+              <button onClick={triggerFolderSelect}>📁 上传文件夹</button>
+              <button onClick={() => openCreateDialog('folder')}>📁 创建文件夹</button>
+              <button onClick={() => openCreateDialog('txt')}>📝 创建txt文档</button>
+            </div>
+          )}
+        </>
       )}
 
-      {contextMenu.open && (
-        <div
-          className="context-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <button onClick={triggerFileSelect}>📄 上传文件</button>
-          <button onClick={triggerFolderSelect}>📁 上传文件夹</button>
-          <button onClick={() => openCreateDialog('folder')}>📁 创建文件夹</button>
-          <button onClick={() => openCreateDialog('txt')}>📝 创建txt文档</button>
+      {activeNav === 'docs' && (
+        <div style={{ margin: '20px' }}>
+          {loading ? (
+            <div className="loading">加载中...</div>
+          ) : (
+            <div style={{ display: 'flex', gap: '20px', height: 'calc(100vh - 200px)' }}>
+              {/* 左侧 TXT 文件列表 */}
+              <div style={{ flex: 1, border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px', overflow: 'auto' }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>TXT 文档</h3>
+                {txtFiles.length === 0 ? (
+                  <p style={{ color: '#999', textAlign: 'center' }}>暂无 TXT 文档</p>
+                ) : (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {txtFiles.map(file => (
+                      <li key={file.name}>
+                        <button
+                          onClick={() => viewTxtFile(file)}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '10px 12px',
+                            background: selectedTxtFile && selectedTxtFile.name === file.name ? '#e6f7ff' : 'white',
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '4px',
+                            marginBottom: '8px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <div style={{ fontWeight: '500', marginBottom: '4px' }}>{file.name}</div>
+                          <div style={{ fontSize: '12px', color: '#666' }}>
+                            {formatSize(file.size)} • {formatDate(file.uploaded)}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* 右侧 TXT 文件内容 */}
+              <div style={{ flex: 2, border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px', overflow: 'auto' }}>
+                {selectedTxtFile ? (
+                  <>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>{selectedTxtFile.name}</h3>
+                    <div style={{ 
+                      padding: '16px', 
+                      background: '#f9f9f9', 
+                      borderRadius: '4px', 
+                      whiteSpace: 'pre-wrap', 
+                      fontFamily: 'monospace',
+                      lineHeight: '1.5'
+                    }}>
+                      {txtFileContent || '(空文档)'}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999' }}>
+                    请选择一个 TXT 文档查看
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
