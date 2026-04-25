@@ -13,6 +13,7 @@ export default function App() {
   const [password, setPassword] = useState('')
   const [totalUsed, setTotalUsed] = useState(0)
   const [pendingFiles, setPendingFiles] = useState(null)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const LIMIT = 10 * 1024 * 1024 * 1024 // 10GB
 
@@ -35,6 +36,12 @@ export default function App() {
   useEffect(() => {
     fetchFiles()
   }, [currentPath])
+
+  useEffect(() => {
+    if (!successMessage) return
+    const timer = setTimeout(() => setSuccessMessage(''), 2400)
+    return () => clearTimeout(timer)
+  }, [successMessage])
 
   // 路径导航
   const navigateTo = (path) => {
@@ -150,7 +157,7 @@ export default function App() {
         setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 100))
       }
 
-      alert('上传成功！')
+      setSuccessMessage('上传成功')
       setPassword('')
       setPasswordPrompt(false)
       setPendingFiles(null)
@@ -277,6 +284,12 @@ export default function App() {
 
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
+      {successMessage && (
+        <div className="toast toast-success" role="status" aria-live="polite">
+          {successMessage}
+        </div>
+      )}
+
       <header className="header">
         <h1>📁 临时网盘</h1>
         <p className="space-info">
