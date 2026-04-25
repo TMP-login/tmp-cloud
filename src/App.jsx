@@ -153,7 +153,9 @@ export default function App() {
     try {
       const response = await fetch(`${API_PREFIX}/list?path=${encodeURIComponent(currentPath)}`)
       const data = await response.json()
-      setFiles(data.files || [])
+      // 过滤掉 JSON 文件（用于临时文档存储）
+      const filteredFiles = (data.files || []).filter(file => !file.name.toLowerCase().endsWith('.json'))
+      setFiles(filteredFiles)
       setTotalUsed(data.totalUsed || 0)
     } catch (error) {
       console.error('获取文件列表失败:', error)
@@ -682,60 +684,58 @@ export default function App() {
       )}
 
       <header className="header" style={{ padding: '20px' }}>
-        <div style={{ marginBottom: '20px' }}>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#333', marginBottom: '15px' }}>📁 临时网盘</h1>
-          <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>
-            <button 
-              onClick={() => setActiveNav('drive')}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '16px',
-                color: activeNav === 'drive' ? '#1890ff' : '#666',
-                cursor: 'pointer',
-                padding: '8px 16px',
-                borderRadius: '4px 4px 0 0',
-                borderBottom: activeNav === 'drive' ? '2px solid #1890ff' : 'none'
-              }}
-            >
-              临时网盘
-            </button>
-            <button 
-              onClick={() => setActiveNav('docs')}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '16px',
-                color: activeNav === 'docs' ? '#1890ff' : '#666',
-                cursor: 'pointer',
-                padding: '8px 16px',
-                borderRadius: '4px 4px 0 0',
-                borderBottom: activeNav === 'docs' ? '2px solid #1890ff' : 'none'
-              }}
-            >
-              临时文档
-            </button>
-          </div>
-        </div>
-        {activeNav === 'drive' && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
-                已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
-              </div>
-              <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
-                <div 
-                  style={{ 
-                    height: '100%', 
-                    background: totalUsed > LIMIT * 0.8 ? '#ff6b6b' : '#667eea',
-                    width: Math.min(100, (totalUsed / LIMIT) * 100) + '%',
-                    transition: 'width 0.3s'
-                  }}
-                ></div>
-              </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '24px', color: '#333', marginBottom: '15px' }}>📁 临时网盘</h1>
+            <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>
+              <button 
+                onClick={() => setActiveNav('drive')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '16px',
+                  color: activeNav === 'drive' ? '#1890ff' : '#666',
+                  cursor: 'pointer',
+                  padding: '8px 16px',
+                  borderRadius: '4px 4px 0 0',
+                  borderBottom: activeNav === 'drive' ? '2px solid #1890ff' : 'none'
+                }}
+              >
+                临时网盘
+              </button>
+              <button 
+                onClick={() => setActiveNav('docs')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '16px',
+                  color: activeNav === 'docs' ? '#1890ff' : '#666',
+                  cursor: 'pointer',
+                  padding: '8px 16px',
+                  borderRadius: '4px 4px 0 0',
+                  borderBottom: activeNav === 'docs' ? '2px solid #1890ff' : 'none'
+                }}
+              >
+                临时文档
+              </button>
             </div>
           </div>
-        )}
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+              已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
+            </div>
+            <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
+              <div 
+                style={{ 
+                  height: '100%', 
+                  background: totalUsed > LIMIT * 0.8 ? '#ff6b6b' : '#667eea',
+                  width: Math.min(100, (totalUsed / LIMIT) * 100) + '%',
+                  transition: 'width 0.3s'
+                }}
+              ></div>
+            </div>
+          </div>
+        </div>
       </header>
 
       {activeNav === 'drive' && (
