@@ -56,13 +56,32 @@ export default function App() {
     }
   }
 
-  // 保存文档
-  const saveTxtFile = async () => {
-    setLoading(true)
+  // 保存单条条目
+  const saveSingleEntry = async (index) => {
+    const currentEntries = [...docEntries]
+    const value = currentEntries[index]?.trim()
+
+    // 如果是最后一个空条目且为空，则不保存
+    if (index === currentEntries.length - 1 && !value) {
+      return
+    }
+
+    // 如果是空的非最后条目，则不保存
+    if (!value && index !== currentEntries.length - 1) {
+      showNotice('内容不能为空', 'error')
+      return
+    }
+
     try {
-      const entries = docEntries.filter(entry => entry.trim() !== '')
-      const jsonContent = JSON.stringify({ entries }, null, 2)
-      
+      // 如果是最后一个条目（新增）且有内容，添加新的空条目
+      if (index === currentEntries.length - 1 && value) {
+        currentEntries.push('')
+      }
+
+      // 保存所有非空条目
+      const entriesToSave = currentEntries.filter((e, i) => i < currentEntries.length - 1 && e.trim() !== '')
+      const jsonContent = JSON.stringify({ entries: entriesToSave }, null, 2)
+
       const formData = new FormData()
       const blob = new Blob([jsonContent], { type: 'text/plain' })
       formData.append('file', blob, 'notes.json')
@@ -74,16 +93,51 @@ export default function App() {
       })
 
       if (response.ok) {
+        setDocEntries(currentEntries)
         showNotice('保存成功', 'success')
       } else {
         const error = await response.text()
         showNotice('保存失败: ' + error, 'error')
       }
     } catch (error) {
-      console.error('保存文档失败:', error)
-      showNotice('保存文档失败', 'error')
-    } finally {
-      setLoading(false)
+      console.error('保存条目失败:', error)
+      showNotice('保存失败', 'error')
+    }
+  }
+
+  // 删除单条条目
+  const deleteSingleEntry = async (index) => {
+    try {
+      const newEntries = docEntries.filter((_, i) => i !== index)
+      
+      // 保存删除后的数据
+      const entriesToSave = newEntries.filter(e => e.trim() !== '')
+      const jsonContent = JSON.stringify({ entries: entriesToSave }, null, 2)
+
+      const formData = new FormData()
+      const blob = new Blob([jsonContent], { type: 'text/plain' })
+      formData.append('file', blob, 'notes.json')
+      formData.append('path', 'notes.json')
+
+      const response = await fetch(`${API_PREFIX}/upload`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        // 如果删除后没有空条目，添加一个
+        if (newEntries.length === 0 || newEntries[newEntries.length - 1].trim() !== '') {
+          newEntries.push('')
+        }
+        setDocEntries(newEntries)
+        showNotice('删除成功', 'success')
+      } else {
+        const error = await response.text()
+        showNotice('删除失败: ' + error, 'error')
+      }
+    } catch (error) {
+      console.error('删除条目失败:', error)
+      showNotice('删除失败', 'error')
     }
   }
 
@@ -124,7 +178,12 @@ export default function App() {
       try {
         const json = JSON.parse(content)
         if (Array.isArray(json.entries)) {
-          setDocEntries([...json.entries, ''])
+          // 确保最后始终有一个空条目
+          const entries = [...json.entries]
+          if (entries.length === 0 || entries[entries.length - 1].trim() !== '') {
+            entries.push('')
+          }
+          setDocEntries(entries)
         } else {
           setDocEntries([''])
         }
@@ -916,7 +975,7 @@ export default function App() {
                       }}
                     />
                     <button
-                      onClick={saveTxtFile}
+                      onClick={() => saveSingleEntry(index)}
                       style={{
                         padding: '8px 16px',
                         background: '#52c41a',
@@ -930,10 +989,7 @@ export default function App() {
                       ✓
                     </button>
                     <button
-                      onClick={() => {
-                        const newEntries = docEntries.filter((_, i) => i !== index)
-                        setDocEntries(newEntries.length > 0 ? newEntries : [''])
-                      }}
+                      onClick={() => deleteSingleEntry(index)}
                       style={{
                         padding: '8px 16px',
                         background: '#ff4d4f',
@@ -948,22 +1004,6 @@ export default function App() {
                     </button>
                   </div>
                 ))}
-                {/* 添加新条目按钮 */}
-                <button
-                  onClick={() => setDocEntries([...docEntries, ''])}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: '#f5f5f5',
-                    border: '1px dashed #d9d9d9',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    color: '#666'
-                  }}
-                >
-                  + 添加新条目
-                </button>
               </div>
             </div>
           )}
