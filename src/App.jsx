@@ -816,14 +816,11 @@ export default function App() {
             </span>
           </h1>
           <div style={{ marginTop: '10px' }}>
-            <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
-              已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
-            </div>
             <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
               <div 
                 style={{ 
                   height: '100%', 
-                  background: totalUsed > LIMIT * 0.8 ? '#ff6b6b' : '#667eea',
+                  background: totalUsed > 8 * 1024 * 1024 * 1024 ? '#1890ff' : '#52c41a',
                   width: Math.min(100, (totalUsed / LIMIT) * 100) + '%',
                   transition: 'width 0.3s'
                 }}
