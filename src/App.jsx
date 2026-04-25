@@ -87,24 +87,48 @@ export default function App() {
     }
   }
 
+  // 创建空的文档
+  const createEmptyDoc = async () => {
+    const jsonContent = JSON.stringify({ entries: [] }, null, 2)
+    
+    const formData = new FormData()
+    const blob = new Blob([jsonContent], { type: 'text/plain' })
+    formData.append('file', blob, 'notes.json')
+    formData.append('path', '')
+
+    const response = await fetch(`${API_PREFIX}/upload`, {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      throw new Error('创建文档失败')
+    }
+  }
+
   // 加载文档
   const loadDoc = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_PREFIX}/download?path=notes.json`)
-      if (response.ok) {
-        const content = await response.text()
-        try {
-          const json = JSON.parse(content)
-          if (Array.isArray(json.entries)) {
-            setDocEntries([...json.entries, ''])
-          } else {
-            setDocEntries([''])
-          }
-        } catch {
+      let response = await fetch(`${API_PREFIX}/download?path=notes.json`)
+      if (!response.ok) {
+        // 如果没有文档，创建空的
+        await createEmptyDoc()
+        response = await fetch(`${API_PREFIX}/download?path=notes.json`)
+        if (!response.ok) {
+          setDocEntries([''])
+          return
+        }
+      }
+      const content = await response.text()
+      try {
+        const json = JSON.parse(content)
+        if (Array.isArray(json.entries)) {
+          setDocEntries([...json.entries, ''])
+        } else {
           setDocEntries([''])
         }
-      } else {
+      } catch {
         setDocEntries([''])
       }
     } catch (error) {
@@ -908,6 +932,20 @@ export default function App() {
                         fontSize: '14px'
                       }}
                     />
+                    <button
+                      onClick={saveTxtFile}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#52c41a',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      ✓
+                    </button>
                     <button
                       onClick={() => {
                         const newEntries = docEntries.filter((_, i) => i !== index)
