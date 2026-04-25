@@ -637,7 +637,7 @@ export default function App() {
                         cursor: 'pointer',
                         fontSize: '12px',
                         transition: 'all 0.2s',
-                        minWidth: '80px'
+                        minWidth: '100px'
                       }}
                     >
                       ⬇️ 打包下载
@@ -696,7 +696,7 @@ export default function App() {
                         cursor: 'pointer',
                         fontSize: '12px',
                         transition: 'all 0.2s',
-                        minWidth: '80px'
+                        minWidth: '100px'
                       }}
                     >
                       ⬇️ 下载
