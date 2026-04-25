@@ -561,7 +561,7 @@ export default function App() {
         </p>
       </header>
 
-      <nav className="breadcrumb" style={{ backgroundColor: '#f0f7ff', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #1890ff', margin: '0 20px 20px' }}>
+      <nav className="breadcrumb" style={{ backgroundColor: '#f0f7ff', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #1890ff', margin: '20px' }}>
         <button onClick={goRoot} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
           首页
         </button>
@@ -578,7 +578,7 @@ export default function App() {
       {loading ? (
         <div className="loading">加载中...</div>
       ) : (
-        <div className="file-list">
+        <div className="file-list" style={{ margin: '0 20px 20px' }}>
           {folders.length === 0 && regularFiles.length === 0 ? (
             <p className="empty">右键空白处上传或创建内容</p>
           ) : (
@@ -679,9 +679,9 @@ export default function App() {
                           {file.name}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', gap: '16px', color: '#666', fontSize: '12px' }}>
-                        <span style={{ flexShrink: 0, minWidth: '80px' }}>{formatSize(file.size)}</span>
-                        <span style={{ flexShrink: 0, minWidth: '160px' }}>{formatDate(file.uploaded)}</span>
+                      <div style={{ display: 'flex', gap: '10px', color: '#666', fontSize: '12px' }}>
+                        <span style={{ flexShrink: 0, minWidth: '70px' }}>{formatSize(file.size)}</span>
+                        <span style={{ flexShrink: 0, minWidth: '140px' }}>{formatDate(file.uploaded)}</span>
                       </div>
                     </div>
                   </div>
