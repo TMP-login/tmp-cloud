@@ -816,7 +816,7 @@ export default function App() {
             </span>
           </h1>
           <div style={{ marginTop: '10px' }}>
-            <div style={{ width: '310px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
+            <div style={{ width: '309px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
               <div 
                 style={{ 
                   height: '100%', 
