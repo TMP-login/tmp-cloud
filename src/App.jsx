@@ -17,6 +17,14 @@ export default function App() {
   const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
   const [renamingFolder, setRenamingFolder] = useState(null)
   const [renamingValue, setRenamingValue] = useState('')
+  const [r2Usage, setR2Usage] = useState({
+    storage: 0, // 已用存储（GB）
+    storageLimit: 10, // 存储限制（GB）
+    classA: 0, // A类操作次数
+    classALimit: 1000000, // A类操作限制
+    classB: 0, // B类操作次数
+    classBLimit: 10000000 // B类操作限制
+  })
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -553,7 +561,7 @@ export default function App() {
 
       <header className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
         <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>📁 临时网盘</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
               已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
@@ -570,10 +578,10 @@ export default function App() {
             </div>
           </div>
           <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>
-            <div>R2 免费额度:</div>
-            <div>存储: 10GB/月</div>
-            <div>A类操作: 100万次/月</div>
-            <div>B类操作: 1000万次/月</div>
+            <div style={{ fontWeight: '500', marginBottom: '4px' }}>R2 使用情况:</div>
+            <div>存储: {r2Usage.storage.toFixed(2)}GB / {r2Usage.storageLimit}GB</div>
+            <div>A类操作: {r2Usage.classA.toLocaleString()} / {r2Usage.classALimit.toLocaleString()}</div>
+            <div>B类操作: {r2Usage.classB.toLocaleString()} / {r2Usage.classBLimit.toLocaleString()}</div>
           </div>
         </div>
       </header>
@@ -675,7 +683,8 @@ export default function App() {
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        flex: 1
+                        flex: 1,
+                        minWidth: '100px'
                       }}
                     >
                       {file.name}
