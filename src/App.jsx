@@ -17,6 +17,20 @@ export default function App() {
   const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
   const [renamingFolder, setRenamingFolder] = useState(null)
   const [renamingValue, setRenamingValue] = useState('')
+  const [r2Usage, setR2Usage] = useState({
+    storage: 0,
+    storageGB: 0,
+    classA: {
+      used: 0,
+      limit: 1000000,
+      percentage: 0
+    },
+    classB: {
+      used: 0,
+      limit: 10000000,
+      percentage: 0
+    }
+  })
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -25,6 +39,19 @@ export default function App() {
 
   const showNotice = (message, type = 'success') => {
     setNotice({ message, type })
+  }
+
+  // 获取 R2 使用情况
+  const fetchR2Usage = async () => {
+    try {
+      const response = await fetch(`${API_PREFIX}/r2-usage`)
+      const data = await response.json()
+      if (data.success || data.data) {
+        setR2Usage(data.data || data)
+      }
+    } catch (error) {
+      console.error('获取 R2 使用情况失败:', error)
+    }
   }
 
   // 获取文件列表
@@ -46,6 +73,10 @@ export default function App() {
   useEffect(() => {
     fetchFiles()
   }, [currentPath])
+
+  useEffect(() => {
+    fetchR2Usage()
+  }, [])
 
   useEffect(() => {
     if (!notice.message) return
@@ -570,8 +601,10 @@ export default function App() {
             </div>
           </div>
           <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', lineHeight: '1.4' }}>
-            <div style={{ fontWeight: '500', marginBottom: '4px' }}>存储使用情况:</div>
-            <div>{(totalUsed / (1024 * 1024 * 1024)).toFixed(4)} GB / 10 GB</div>
+            <div style={{ fontWeight: '500', marginBottom: '4px' }}>R2 使用情况:</div>
+            <div>存储: {r2Usage.storageGB} GB / 10 GB</div>
+            <div>A类操作: {r2Usage.classA.used.toLocaleString()} / 1,000,000 ({r2Usage.classA.percentage}%)</div>
+            <div>B类操作: {r2Usage.classB.used.toLocaleString()} / 10,000,000 ({r2Usage.classB.percentage}%)</div>
           </div>
         </div>
       </header>
