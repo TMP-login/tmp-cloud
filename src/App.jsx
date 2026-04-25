@@ -32,10 +32,6 @@ export default function App() {
       percentage: 0
     }
   })
-  const [txtFiles, setTxtFiles] = useState([])
-  const [selectedTxtFile, setSelectedTxtFile] = useState(null)
-  const [txtFileContent, setTxtFileContent] = useState('')
-  const [editingFileName, setEditingFileName] = useState('')
   const [docEntries, setDocEntries] = useState([''])
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
@@ -60,70 +56,16 @@ export default function App() {
     }
   }
 
-  // 获取所有 TXT 文件
-  const fetchTxtFiles = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch(`${API_PREFIX}/list?path=`)
-      const data = await response.json()
-      if (data.files) {
-        // 过滤出所有 TXT 文件
-        const txts = data.files.filter(file => file.name.toLowerCase().endsWith('.txt'))
-        setTxtFiles(txts)
-      }
-    } catch (error) {
-      console.error('获取 TXT 文件列表失败:', error)
-      showNotice('获取 TXT 文件列表失败', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 查看 TXT 文件内容
-  const viewTxtFile = async (file) => {
-    setLoading(true)
-    try {
-      const response = await fetch(`${API_PREFIX}/download?path=${encodeURIComponent(file.name)}`)
-      const content = await response.text()
-      setSelectedTxtFile(file)
-      setEditingFileName(file.name)
-      
-      // 尝试解析 JSON 文件
-      try {
-        const json = JSON.parse(content)
-        if (Array.isArray(json.entries)) {
-          setDocEntries([...json.entries, ''])
-        } else {
-          setDocEntries([content, ''])
-        }
-      } catch {
-        setDocEntries([content, ''])
-      }
-      setTxtFileContent(content)
-    } catch (error) {
-      console.error('获取 TXT 文件内容失败:', error)
-      showNotice('获取 TXT 文件内容失败', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 保存 TXT 文件
+  // 保存文档
   const saveTxtFile = async () => {
-    if (!editingFileName.trim()) {
-      showNotice('文件名不能为空', 'error')
-      return
-    }
-
     setLoading(true)
     try {
-      // 过滤掉空的条目
       const entries = docEntries.filter(entry => entry.trim() !== '')
       const jsonContent = JSON.stringify({ entries }, null, 2)
       
       const formData = new FormData()
       const blob = new Blob([jsonContent], { type: 'text/plain' })
-      formData.append('file', blob, editingFileName.endsWith('.json') ? editingFileName : editingFileName + '.json')
+      formData.append('file', blob, 'notes.json')
       formData.append('path', '')
 
       const response = await fetch(`${API_PREFIX}/upload`, {
@@ -133,19 +75,48 @@ export default function App() {
 
       if (response.ok) {
         showNotice('保存成功', 'success')
-        // 重新获取文件列表
-        await fetchTxtFiles()
       } else {
         const error = await response.text()
         showNotice('保存失败: ' + error, 'error')
       }
     } catch (error) {
-      console.error('保存 TXT 文件失败:', error)
-      showNotice('保存 TXT 文件失败', 'error')
+      console.error('保存文档失败:', error)
+      showNotice('保存文档失败', 'error')
     } finally {
       setLoading(false)
     }
   }
+
+  // 加载文档
+  const loadDoc = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_PREFIX}/download?path=notes.json`)
+      if (response.ok) {
+        const content = await response.text()
+        try {
+          const json = JSON.parse(content)
+          if (Array.isArray(json.entries)) {
+            setDocEntries([...json.entries, ''])
+          } else {
+            setDocEntries(['', ''])
+          }
+        } catch {
+          setDocEntries(['', ''])
+        }
+      }
+    } catch (error) {
+      console.error('加载文档失败:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeNav === 'docs') {
+      loadDoc()
+    }
+  }, [activeNav])
 
   // 获取文件列表
   const fetchFiles = async () => {
@@ -909,134 +880,81 @@ export default function App() {
           {loading ? (
             <div className="loading">加载中...</div>
           ) : (
-            <div style={{ display: 'flex', gap: '20px', height: 'calc(100vh - 200px)' }}>
-              {/* 左侧 TXT 文件列表 */}
-              <div style={{ flex: 1, border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px', overflow: 'auto' }}>
-                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>文档列表</h3>
-                {txtFiles.length === 0 ? (
-                  <p style={{ color: '#999', textAlign: 'center' }}>暂无文档</p>
-                ) : (
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {txtFiles.map(file => (
-                      <li key={file.name}>
-                        <button
-                          onClick={() => viewTxtFile(file)}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            textAlign: 'left',
-                            padding: '10px 12px',
-                            background: selectedTxtFile && selectedTxtFile.name === file.name ? '#e6f7ff' : 'white',
-                            border: '1px solid #e0e0e0',
-                            borderRadius: '4px',
-                            marginBottom: '8px',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          <div style={{ fontWeight: '500', marginBottom: '4px' }}>{file.name}</div>
-                          <div style={{ fontSize: '12px', color: '#666' }}>
-                            {formatSize(file.size)} • {formatDate(file.uploaded)}
-                          </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ margin: 0, fontSize: '18px', color: '#333' }}>📝 临时文档</h2>
+                <button
+                  onClick={saveTxtFile}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#52c41a',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  ✓ 保存
+                </button>
               </div>
 
-              {/* 右侧文档编辑区 */}
-              <div style={{ flex: 2, border: '1px solid #e0e0e0', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {/* 顶部文件名和保存按钮 */}
-                <div style={{ padding: '16px', borderBottom: '1px solid #e0e0e0', backgroundColor: '#f5f5f5' }}>
-                  <input
-                    type="text"
-                    value={editingFileName}
-                    onChange={(e) => setEditingFileName(e.target.value)}
-                    placeholder="输入文件名"
-                    style={{
-                      width: '70%',
-                      padding: '8px 12px',
-                      border: '1px solid #d9d9d9',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                  />
-                  <button
-                    onClick={saveTxtFile}
-                    style={{
-                      marginLeft: '16px',
-                      padding: '8px 16px',
-                      background: '#52c41a',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    ✓ 保存
-                  </button>
-                </div>
-
-                {/* 内容区域 - 条目列表 */}
-                <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
-                  {docEntries.map((entry, index) => (
-                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'stretch' }}>
-                      <input
-                        type="text"
-                        value={entry}
-                        onChange={(e) => {
-                          const newEntries = [...docEntries]
-                          newEntries[index] = e.target.value
-                          setDocEntries(newEntries)
-                        }}
-                        placeholder={`条目 ${index + 1}`}
-                        style={{
-                          flex: 1,
-                          padding: '12px 16px',
-                          border: '1px solid #d9d9d9',
-                          borderRadius: '4px',
-                          fontSize: '14px'
-                        }}
-                      />
-                      <button
-                        onClick={() => {
-                          const newEntries = docEntries.filter((_, i) => i !== index)
-                          setDocEntries(newEntries.length > 0 ? newEntries : [''])
-                        }}
-                        style={{
-                          padding: '8px 16px',
-                          background: '#ff4d4f',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '14px'
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  {/* 添加新条目按钮 */}
-                  <button
-                    onClick={() => setDocEntries([...docEntries, ''])}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: '#f5f5f5',
-                      border: '1px dashed #d9d9d9',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      color: '#666'
-                    }}
-                  >
-                    + 添加新条目
-                  </button>
-                </div>
+              {/* 条目列表 */}
+              <div>
+                {docEntries.map((entry, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'stretch' }}>
+                    <input
+                      type="text"
+                      value={entry}
+                      onChange={(e) => {
+                        const newEntries = [...docEntries]
+                        newEntries[index] = e.target.value
+                        setDocEntries(newEntries)
+                      }}
+                      placeholder={`条目 ${index + 1}`}
+                      style={{
+                        flex: 1,
+                        padding: '12px 16px',
+                        border: '1px solid #d9d9d9',
+                        borderRadius: '4px',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        const newEntries = docEntries.filter((_, i) => i !== index)
+                        setDocEntries(newEntries.length > 0 ? newEntries : [''])
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#ff4d4f',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {/* 添加新条目按钮 */}
+                <button
+                  onClick={() => setDocEntries([...docEntries, ''])}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: '#f5f5f5',
+                    border: '1px dashed #d9d9d9',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: '#666'
+                  }}
+                >
+                  + 添加新条目
+                </button>
               </div>
             </div>
           )}
