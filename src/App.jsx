@@ -583,18 +583,13 @@ export default function App() {
       )}
 
       <header className="header" style={{ padding: '20px' }}>
-        <h1 style={{ margin: 0, fontSize: '24px', color: '#333', marginBottom: '12px' }}>📁 临时网盘</h1>
-        <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-          <span>R2 存储: {r2Usage.storage?.usedGB || r2Usage.storageGB || 0} GB / 10 GB | </span>
-          <span>A类: {(r2Usage.classA?.used || 0).toLocaleString()} / 1,000,000 | </span>
-          <span>B类: {(r2Usage.classB?.used || 0).toLocaleString()} / 10,000,000</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>📁 临时网盘</h1>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
               已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
             </div>
-            <div style={{ width: '150px', height: '3px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ width: '200px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
               <div 
                 style={{ 
                   height: '100%', 
