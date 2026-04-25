@@ -956,14 +956,21 @@ export default function App() {
               {/* 条目列表 */}
               <div>
                 {docEntries.map((entry, index) => (
-                  <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'stretch' }}>
-                    <input
-                      type="text"
+                  <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'flex-start' }}>
+                    <textarea
                       value={entry}
                       onChange={(e) => {
                         const newEntries = [...docEntries]
                         newEntries[index] = e.target.value
                         setDocEntries(newEntries)
+                        // 自动调整高度
+                        e.target.style.height = 'auto'
+                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+                      }}
+                      onInput={(e) => {
+                        // 自动调整高度
+                        e.target.style.height = 'auto'
+                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
                       }}
                       placeholder={`条目 ${index + 1}`}
                       style={{
@@ -971,7 +978,13 @@ export default function App() {
                         padding: '12px 16px',
                         border: '1px solid #d9d9d9',
                         borderRadius: '4px',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        minHeight: '44px',
+                        maxHeight: '200px',
+                        resize: 'none',
+                        fontFamily: 'inherit',
+                        lineHeight: '1.5',
+                        overflow: 'hidden'
                       }}
                     />
                     <button
@@ -983,7 +996,9 @@ export default function App() {
                         border: 'none',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        marginTop: '2px',
+                        flexShrink: 0
                       }}
                     >
                       ✓
@@ -997,7 +1012,9 @@ export default function App() {
                         border: 'none',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        fontSize: '14px'
+                        fontSize: '14px',
+                        marginTop: '2px',
+                        flexShrink: 0
                       }}
                     >
                       ✕
