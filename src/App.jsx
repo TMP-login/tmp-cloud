@@ -61,58 +61,58 @@ export default function App() {
     navigateTo('')
   }
 
-  // 计算新增文件大小
-  const calculateFileSize = (files) => {
-    let total = 0
-    for (const file of files) {
-      if (file.webkitGetAsEntry) {
-        // 文件夹或文件
-        const item = file.webkitGetAsEntry()
-        if (item?.isFile) {
-          total += file.size
-        }
-      } else {
-        total += file.size
-      }
-    }
-    return total
-  }
-
   // 处理上传
-  const handleUpload = async (fileList, pathPrefix = '') => {
+  const handleUpload = async (fileList) => {
     if (fileList.length === 0) return
 
     let newSize = 0
     const allFilesToUpload = []
 
-    // 递归收集所有文件
-    const processItems = async (items) => {
-      for (const item of items) {
-        if (item.isFile) {
-          const file = await new Promise(resolve => item.file(resolve))
-          allFilesToUpload.push({
-            file,
-            path: pathPrefix + (pathPrefix ? '/' : '') + file.name
-          })
-          newSize += file.size
-        } else if (item.isDirectory) {
-          const reader = item.createReader()
-          const children = await new Promise(resolve => reader.readEntries(resolve))
-          await processItems(children)
+    const readAllEntries = async (directoryReader) => {
+      const entries = []
+      while (true) {
+        const batch = await new Promise(resolve => directoryReader.readEntries(resolve))
+        if (!batch.length) break
+        entries.push(...batch)
+      }
+      return entries
+    }
+
+    // 递归收集目录中的所有文件，并保留相对路径
+    const walkEntry = async (entry, basePath = '') => {
+      if (!entry) return
+      if (entry.isFile) {
+        const file = await new Promise(resolve => entry.file(resolve))
+        allFilesToUpload.push({
+          file,
+          path: basePath ? `${basePath}/${file.name}` : file.name
+        })
+        newSize += file.size
+        return
+      }
+
+      if (entry.isDirectory) {
+        const nextBase = basePath ? `${basePath}/${entry.name}` : entry.name
+        const children = await readAllEntries(entry.createReader())
+        for (const child of children) {
+          await walkEntry(child, nextBase)
         }
       }
     }
 
     // 如果是 DataTransfer 列表
     if (fileList[0]?.webkitGetAsEntry) {
-      const entries = Array.from(fileList).map(f => f.webkitGetAsEntry())
-      await processItems(entries)
+      const entries = Array.from(fileList).map(item => item.webkitGetAsEntry()).filter(Boolean)
+      for (const entry of entries) {
+        await walkEntry(entry)
+      }
     } else {
-      // 普通文件列表
+      // 普通文件 / 文件夹选择，优先使用 webkitRelativePath 保留目录结构
       for (const file of fileList) {
+        const relativePath = file.webkitRelativePath || file.name
         allFilesToUpload.push({
           file,
-          path: pathPrefix + (pathPrefix ? '/' : '') + file.name
+          path: relativePath
         })
         newSize += file.size
       }

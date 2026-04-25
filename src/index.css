@@ -21,20 +21,37 @@ html, body, #root {
 
 .toast {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: 18px;
+  right: 18px;
   z-index: 1200;
-  padding: 10px 14px;
-  border-radius: 8px;
-  color: #fff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  color: #1d5d46;
   font-size: 14px;
-  font-weight: 600;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  animation: toast-in 0.2s ease-out;
+  font-weight: 500;
+  border: 1px solid rgba(101, 201, 156, 0.35);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 24px rgba(22, 99, 73, 0.12);
+  animation: toast-in 0.25s ease-out;
 }
 
 .toast-success {
-  background: linear-gradient(135deg, #1f9d55, #198754);
+  background: linear-gradient(135deg, rgba(236, 255, 248, 0.98), rgba(218, 250, 239, 0.96));
+}
+
+.toast-success::before {
+  content: '✓';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #4cbf93;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 @keyframes toast-in {
