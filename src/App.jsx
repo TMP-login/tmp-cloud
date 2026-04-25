@@ -820,7 +820,7 @@ export default function App() {
               <div 
                 style={{ 
                   height: '100%', 
-                  background: totalUsed > 8 * 1024 * 1024 * 1024 ? '#1890ff' : '#52c41a',
+                  background: totalUsed > 8 * 1024 * 1024 * 1024 ? '#ff1818' : '#52c41a',
                   width: Math.min(100, (totalUsed / LIMIT) * 100) + '%',
                   transition: 'width 0.3s'
                 }}
