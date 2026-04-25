@@ -89,6 +89,7 @@ export default function App() {
 
   // 加载文档
   const loadDoc = async () => {
+    setLoading(true)
     try {
       const response = await fetch(`${API_PREFIX}/download?path=notes.json`)
       if (response.ok) {
@@ -109,6 +110,8 @@ export default function App() {
     } catch (error) {
       console.error('加载文档失败:', error)
       setDocEntries([''])
+    } finally {
+      setLoading(false)
     }
   }
 
