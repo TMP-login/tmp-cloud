@@ -36,6 +36,7 @@ export default function App() {
   const [selectedTxtFile, setSelectedTxtFile] = useState(null)
   const [txtFileContent, setTxtFileContent] = useState('')
   const [editingFileName, setEditingFileName] = useState('')
+  const [docEntries, setDocEntries] = useState([''])
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -85,8 +86,20 @@ export default function App() {
       const response = await fetch(`${API_PREFIX}/download?path=${encodeURIComponent(file.name)}`)
       const content = await response.text()
       setSelectedTxtFile(file)
-      setTxtFileContent(content)
       setEditingFileName(file.name)
+      
+      // 尝试解析 JSON 文件
+      try {
+        const json = JSON.parse(content)
+        if (Array.isArray(json.entries)) {
+          setDocEntries([...json.entries, ''])
+        } else {
+          setDocEntries([content, ''])
+        }
+      } catch {
+        setDocEntries([content, ''])
+      }
+      setTxtFileContent(content)
     } catch (error) {
       console.error('获取 TXT 文件内容失败:', error)
       showNotice('获取 TXT 文件内容失败', 'error')
@@ -104,9 +117,13 @@ export default function App() {
 
     setLoading(true)
     try {
+      // 过滤掉空的条目
+      const entries = docEntries.filter(entry => entry.trim() !== '')
+      const jsonContent = JSON.stringify({ entries }, null, 2)
+      
       const formData = new FormData()
-      const blob = new Blob([txtFileContent], { type: 'text/plain' })
-      formData.append('file', blob, editingFileName)
+      const blob = new Blob([jsonContent], { type: 'text/plain' })
+      formData.append('file', blob, editingFileName.endsWith('.json') ? editingFileName : editingFileName + '.json')
       formData.append('path', '')
 
       const response = await fetch(`${API_PREFIX}/upload`, {
@@ -118,14 +135,6 @@ export default function App() {
         showNotice('保存成功', 'success')
         // 重新获取文件列表
         await fetchTxtFiles()
-        // 如果是新文件，更新选中状态
-        if (!selectedTxtFile || selectedTxtFile.name !== editingFileName) {
-          const updatedFiles = await (await fetch(`${API_PREFIX}/list?path=`)).json()
-          const newFile = updatedFiles.files.find(file => file.name === editingFileName)
-          if (newFile) {
-            setSelectedTxtFile(newFile)
-          }
-        }
       } else {
         const error = await response.text()
         showNotice('保存失败: ' + error, 'error')
@@ -903,9 +912,9 @@ export default function App() {
             <div style={{ display: 'flex', gap: '20px', height: 'calc(100vh - 200px)' }}>
               {/* 左侧 TXT 文件列表 */}
               <div style={{ flex: 1, border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px', overflow: 'auto' }}>
-                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>TXT 文档</h3>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>文档列表</h3>
                 {txtFiles.length === 0 ? (
-                  <p style={{ color: '#999', textAlign: 'center' }}>暂无 TXT 文档</p>
+                  <p style={{ color: '#999', textAlign: 'center' }}>暂无文档</p>
                 ) : (
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {txtFiles.map(file => (
@@ -937,7 +946,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* 右侧 TXT 文件内容 */}
+              {/* 右侧文档编辑区 */}
               <div style={{ flex: 2, border: '1px solid #e0e0e0', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {/* 顶部文件名和保存按钮 */}
                 <div style={{ padding: '16px', borderBottom: '1px solid #e0e0e0', backgroundColor: '#f5f5f5' }}>
@@ -959,7 +968,7 @@ export default function App() {
                     style={{
                       marginLeft: '16px',
                       padding: '8px 16px',
-                      background: '#1890ff',
+                      background: '#52c41a',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
@@ -967,28 +976,66 @@ export default function App() {
                       fontSize: '14px'
                     }}
                   >
-                    保存
+                    ✓ 保存
                   </button>
                 </div>
 
-                {/* 底部内容区域 */}
+                {/* 内容区域 - 条目列表 */}
                 <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
-                  <textarea
-                    value={txtFileContent}
-                    onChange={(e) => setTxtFileContent(e.target.value)}
-                    placeholder="输入文档内容..."
+                  {docEntries.map((entry, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'stretch' }}>
+                      <input
+                        type="text"
+                        value={entry}
+                        onChange={(e) => {
+                          const newEntries = [...docEntries]
+                          newEntries[index] = e.target.value
+                          setDocEntries(newEntries)
+                        }}
+                        placeholder={`条目 ${index + 1}`}
+                        style={{
+                          flex: 1,
+                          padding: '12px 16px',
+                          border: '1px solid #d9d9d9',
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const newEntries = docEntries.filter((_, i) => i !== index)
+                          setDocEntries(newEntries.length > 0 ? newEntries : [''])
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          background: '#ff4d4f',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {/* 添加新条目按钮 */}
+                  <button
+                    onClick={() => setDocEntries([...docEntries, ''])}
                     style={{
                       width: '100%',
-                      height: '100%',
-                      padding: '16px',
-                      border: '1px solid #e0e0e0',
+                      padding: '12px 16px',
+                      background: '#f5f5f5',
+                      border: '1px dashed #d9d9d9',
                       borderRadius: '4px',
-                      resize: 'none',
-                      fontFamily: 'monospace',
+                      cursor: 'pointer',
                       fontSize: '14px',
-                      lineHeight: '1.5'
+                      color: '#666'
                     }}
-                  />
+                  >
+                    + 添加新条目
+                  </button>
                 </div>
               </div>
             </div>
