@@ -66,7 +66,7 @@ export default function App() {
       const formData = new FormData()
       const blob = new Blob([jsonContent], { type: 'text/plain' })
       formData.append('file', blob, 'notes.json')
-      formData.append('path', '')
+      formData.append('path', 'notes.json')
 
       const response = await fetch(`${API_PREFIX}/upload`, {
         method: 'POST',
@@ -94,7 +94,7 @@ export default function App() {
     const formData = new FormData()
     const blob = new Blob([jsonContent], { type: 'text/plain' })
     formData.append('file', blob, 'notes.json')
-    formData.append('path', '')
+    formData.append('path', 'notes.json')
 
     const response = await fetch(`${API_PREFIX}/upload`, {
       method: 'POST',
@@ -894,23 +894,6 @@ export default function App() {
             <div className="loading">加载中...</div>
           ) : (
             <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
-                <button
-                  onClick={saveTxtFile}
-                  style={{
-                    padding: '8px 16px',
-                    background: '#52c41a',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  ✓ 保存
-                </button>
-              </div>
-
               {/* 条目列表 */}
               <div>
                 {docEntries.map((entry, index) => (
