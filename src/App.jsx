@@ -149,7 +149,7 @@ export default function App() {
 
   useEffect(() => {
     if (activeNav === 'docs') {
-      fetchTxtFiles()
+      loadDoc()
     }
   }, [activeNav])
 
