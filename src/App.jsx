@@ -601,49 +601,25 @@ export default function App() {
           ) : (
             <>
               {folders.map(folder => (
-                <div key={folder.name} className="file-item folder-item">
-                  <div className="file-info" style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '16px' }}>
+                <div key={folder.name} className="file-item folder-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f5f5ff', border: '1px solid #e0d4ff', borderRadius: '8px', marginBottom: '10px', transition: 'all 0.2s' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
                     <span style={{ fontSize: '18px' }}>📁</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ marginBottom: '4px' }}>
-                        {renamingFolder === folder.name ? (
-                          <input
-                            ref={renameInputRef}
-                            type="text"
-                            value={renamingValue}
-                            onChange={(e) => setRenamingValue(e.target.value)}
-                            onBlur={handleRenameComplete}
-                            onKeyDown={handleRenameKeyDown}
-                            style={{
-                              border: '1px solid #667eea',
-                              borderRadius: '4px',
-                              padding: '4px 8px',
-                              fontSize: '14px',
-                              fontWeight: '500',
-                              color: '#333',
-                              width: '200px'
-                            }}
-                          />
-                        ) : (
-                          <span 
-                            style={{ 
-                              cursor: 'pointer',
-                              fontWeight: '500',
-                              color: '#1890ff',
-                              display: 'block',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}
-                            onClick={() => enterFolder(folder.name)}
-                          >
-                            {folder.name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <span 
+                      style={{ 
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        color: '#1890ff',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flex: 1
+                      }}
+                      onClick={() => enterFolder(folder.name)}
+                    >
+                      {folder.name}
+                    </span>
                   </div>
-                  <div className="file-actions" style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap', marginLeft: '16px' }}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleDownload(folder.name, true) }} 
                       style={{ 
@@ -678,61 +654,70 @@ export default function App() {
                 </div>
               ))}
               {regularFiles.map(file => (
-                <div key={file.name} className="file-item">
-                  <div className="file-info" style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '16px' }}>
+                <div key={file.name} className="file-item" style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  padding: '14px 16px', 
+                  background: 'white', 
+                  border: '1px solid #e0e0e0', 
+                  borderRadius: '8px', 
+                  marginBottom: '10px', 
+                  transition: 'all 0.2s',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, marginBottom: '8px' }}>
                     <span style={{ fontSize: '18px' }}>📄</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ marginBottom: '4px' }}>
-                        <span 
-                          style={{ 
-                            fontWeight: '500',
-                            color: '#333',
-                            display: 'block',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
-                          {file.name}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px', color: '#666', fontSize: '12px' }}>
-                        <span style={{ flexShrink: 0, minWidth: '70px' }}>{formatSize(file.size)}</span>
-                        <span style={{ flexShrink: 0, minWidth: '140px' }}>{formatDate(file.uploaded)}</span>
-                      </div>
-                    </div>
+                    <span 
+                      style={{ 
+                        fontWeight: '500',
+                        color: '#333',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flex: 1
+                      }}
+                    >
+                      {file.name}
+                    </span>
                   </div>
-                  <div className="file-actions" style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
-                    <button 
-                      onClick={() => handleDownload(file.name)} 
-                      style={{ 
-                        background: 'white',
-                        border: '1px solid #e0e0e0',
-                        padding: '6px 12px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        transition: 'all 0.2s',
-                        minWidth: '100px'
-                      }}
-                    >
-                      ⬇️ 下载
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(file.name)} 
-                      style={{ 
-                        background: 'white',
-                        border: '1px solid #e0e0e0',
-                        padding: '6px 12px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px',
-                        transition: 'all 0.2s',
-                        minWidth: '60px'
-                      }}
-                    >
-                      🗑️ 删除
-                    </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', whiteSpace: 'nowrap', width: '100%', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: '10px', color: '#666', fontSize: '12px', marginRight: '16px' }}>
+                      <span style={{ flexShrink: 0, minWidth: '70px', textAlign: 'right' }}>{formatSize(file.size)}</span>
+                      <span style={{ flexShrink: 0, minWidth: '140px', textAlign: 'right' }}>{formatDate(file.uploaded)}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
+                      <button 
+                        onClick={() => handleDownload(file.name)} 
+                        style={{ 
+                          background: 'white',
+                          border: '1px solid #e0e0e0',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          transition: 'all 0.2s',
+                          minWidth: '100px'
+                        }}
+                      >
+                        ⬇️ 下载
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(file.name)} 
+                        style={{ 
+                          background: 'white',
+                          border: '1px solid #e0e0e0',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          transition: 'all 0.2s',
+                          minWidth: '60px'
+                        }}
+                      >
+                        🗑️ 删除
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
