@@ -655,42 +655,28 @@ export default function App() {
       )}
 
       <header className="header" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '24px', color: '#333', marginBottom: '15px' }}>📁 临时网盘</h1>
-            <div style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>
-              <button 
-                onClick={() => setActiveNav('drive')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '16px',
-                  color: activeNav === 'drive' ? '#1890ff' : '#666',
-                  cursor: 'pointer',
-                  padding: '8px 16px',
-                  borderRadius: '4px 4px 0 0',
-                  borderBottom: activeNav === 'drive' ? '2px solid #1890ff' : 'none'
-                }}
-              >
-                临时网盘
-              </button>
-              <button 
-                onClick={() => setActiveNav('docs')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '16px',
-                  color: activeNav === 'docs' ? '#1890ff' : '#666',
-                  cursor: 'pointer',
-                  padding: '8px 16px',
-                  borderRadius: '4px 4px 0 0',
-                  borderBottom: activeNav === 'docs' ? '2px solid #1890ff' : 'none'
-                }}
-              >
-                临时文档
-              </button>
-            </div>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>
+            <span 
+              onClick={() => setActiveNav('drive')}
+              style={{ 
+                cursor: 'pointer',
+                color: activeNav === 'drive' ? '#1890ff' : '#333'
+              }}
+            >
+              📁 临时网盘
+            </span>
+            <span style={{ color: '#ccc', margin: '0 12px' }}>/</span>
+            <span 
+              onClick={() => setActiveNav('docs')}
+              style={{ 
+                cursor: 'pointer',
+                color: activeNav === 'docs' ? '#1890ff' : '#333'
+              }}
+            >
+              📝 临时文档
+            </span>
+          </h1>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
               已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
@@ -881,8 +867,7 @@ export default function App() {
             <div className="loading">加载中...</div>
           ) : (
             <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ margin: 0, fontSize: '18px', color: '#333' }}>📝 临时文档</h2>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
                 <button
                   onClick={saveTxtFile}
                   style={{
