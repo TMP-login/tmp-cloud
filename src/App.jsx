@@ -61,7 +61,15 @@ export default function App() {
   // 保存文档
   const saveDoc = async () => {
     try {
-      const entriesToSave = docEntries.filter(e => e.trim() !== '')
+      // 确保始终有一个空条目
+      const entriesToDisplay = [...docEntries]
+      if (entriesToDisplay.length === 0 || entriesToDisplay[entriesToDisplay.length - 1].trim() !== '') {
+        entriesToDisplay.push('')
+      }
+      setDocEntries(entriesToDisplay)
+      
+      // 保存时只保存有内容的条目
+      const entriesToSave = entriesToDisplay.filter(e => e.trim() !== '')
       const jsonContent = JSON.stringify({ entries: entriesToSave }, null, 2)
 
       const formData = new FormData()
@@ -1023,6 +1031,14 @@ export default function App() {
                       onChange={(e) => {
                         const newEntries = [...docEntries]
                         newEntries[index] = e.target.value
+                        
+                        // 如果在最后一个条目输入内容，自动添加新的空条目
+                        if (index === newEntries.length - 1 && e.target.value.trim() !== '') {
+                          if (newEntries.length === 0 || newEntries[newEntries.length - 1].trim() !== '') {
+                            newEntries.push('')
+                          }
+                        }
+                        
                         setDocEntries(newEntries)
                         setIsModified(true)
                         // 自动调整高度
