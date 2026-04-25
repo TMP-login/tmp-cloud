@@ -793,7 +793,7 @@ export default function App() {
       )}
 
       <header className="header" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>
             <span 
               onClick={() => setActiveNav('drive')}
@@ -815,7 +815,7 @@ export default function App() {
               📝 临时文档
             </span>
           </h1>
-          <div style={{ textAlign: 'right' }}>
+          <div style={{ marginTop: '10px' }}>
             <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
               已用: {formatSize(totalUsed)} / {formatSize(LIMIT)}
             </div>
