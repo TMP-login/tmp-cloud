@@ -8,18 +8,15 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [spaceWarning, setSpaceWarning] = useState(false)
   const [passwordPrompt, setPasswordPrompt] = useState(false)
   const [password, setPassword] = useState('')
   const [totalUsed, setTotalUsed] = useState(0)
   const [pendingFiles, setPendingFiles] = useState(null)
   const [notice, setNotice] = useState({ message: '', type: 'success' })
-  const [uploadMenuOpen, setUploadMenuOpen] = useState(false)
-  const [folderModalOpen, setFolderModalOpen] = useState(false)
-  const [newFolderName, setNewFolderName] = useState('')
+  const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0 })
+  const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
-  const uploadMenuRef = useRef(null)
 
   const LIMIT = 10 * 1024 * 1024 * 1024 // 10GB
 
@@ -54,14 +51,24 @@ export default function App() {
   }, [notice])
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target)) {
-        setUploadMenuOpen(false)
+    const handleGlobalClose = () => {
+      setContextMenu(prev => prev.open ? { ...prev, open: false } : prev)
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setContextMenu(prev => prev.open ? { ...prev, open: false } : prev)
+        setCreateDialog(prev => prev.open ? { ...prev, open: false } : prev)
+        setPasswordPrompt(false)
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('mousedown', handleGlobalClose)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleGlobalClose)
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [])
 
   // 路径导航
@@ -80,6 +87,20 @@ export default function App() {
 
   const goRoot = () => {
     navigateTo('')
+  }
+
+  const openContextMenu = (event) => {
+    event.preventDefault()
+    setContextMenu({
+      open: true,
+      x: event.clientX,
+      y: event.clientY
+    })
+  }
+
+  const openCreateDialog = (type) => {
+    setContextMenu(prev => ({ ...prev, open: false }))
+    setCreateDialog({ open: true, type, name: '' })
   }
 
   // 处理上传
@@ -176,9 +197,8 @@ export default function App() {
         }
 
         setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 100))
-      }
+        }
 
-      setSuccessMessage('上传成功')
       setPassword('')
       setPasswordPrompt(false)
       setPendingFiles(null)
@@ -198,42 +218,81 @@ export default function App() {
     .replace(/[<>:"|?*]/g, '_')
     .replace(/[\\/]+/g, '_')
 
-  const openCreateFolderModal = () => {
-    setNewFolderName('')
-    setFolderModalOpen(true)
-  }
+  const sanitizeFileName = (name) => name
+    .trim()
+    .replace(/[<>:"|?*]/g, '_')
+    .replace(/[\\/]+/g, '_')
 
-  const handleCreateFolder = async () => {
-    const folderName = sanitizeFolderName(newFolderName)
-    if (!folderName) {
-      showNotice('文件夹名称不能为空', 'error')
+  const handleCreateItem = async () => {
+    const dialogName = createDialog.type === 'folder'
+      ? sanitizeFolderName(createDialog.name)
+      : sanitizeFileName(createDialog.name)
+
+    const finalName = createDialog.type === 'txt' && dialogName && !dialogName.toLowerCase().endsWith('.txt')
+      ? `${dialogName}.txt`
+      : dialogName
+
+    if (!finalName) {
+      showNotice(createDialog.type === 'folder' ? '文件夹名称不能为空' : '文档名称不能为空', 'error')
       return
     }
 
-    if (files.some(file => file.name === folderName)) {
+    if (files.some(file => file.name === finalName)) {
       showNotice('同名文件或文件夹已存在', 'error')
       return
     }
 
-    try {
-      const response = await fetch(`${API_PREFIX}/create-folder`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: currentPath ? `${currentPath}/${folderName}` : folderName
+    if (createDialog.type === 'folder') {
+      try {
+        const response = await fetch(`${API_PREFIX}/create-folder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: currentPath ? `${currentPath}/${finalName}` : finalName
+          })
         })
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(data.error || '创建文件夹失败')
+        }
+
+        setCreateDialog({ open: false, type: 'folder', name: '' })
+        showNotice('文件夹已创建', 'success')
+        fetchFiles()
+      } catch (error) {
+        showNotice('创建文件夹失败: ' + error.message, 'error')
+      }
+      return
+    }
+
+    try {
+      const emptyFile = new File([''], finalName, { type: 'text/plain' })
+      const formData = new FormData()
+      formData.append('file', emptyFile)
+      formData.append('path', currentPath ? `${currentPath}/${finalName}` : finalName)
+
+      const response = await fetch(`${API_PREFIX}/upload`, {
+        method: 'POST',
+        body: formData
       })
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || '创建文件夹失败')
+        throw new Error(data.error || '创建文档失败')
       }
 
-      setFolderModalOpen(false)
-      showNotice('文件夹已创建', 'success')
+      setCreateDialog({ open: false, type: 'txt', name: '' })
+      showNotice('文档已创建', 'success')
       fetchFiles()
     } catch (error) {
-      showNotice('创建文件夹失败: ' + error.message, 'error')
+      showNotice('创建文档失败: ' + error.message, 'error')
+    }
+  }
+
+  const handleCreateDialogKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      handleCreateItem()
     }
   }
 
@@ -245,7 +304,6 @@ export default function App() {
     }
 
     try {
-      // 验证密码
       const response = await fetch(`${API_PREFIX}/verify-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -327,12 +385,10 @@ export default function App() {
   }
 
   const triggerFileSelect = () => {
-    setUploadMenuOpen(false)
     fileInputRef.current?.click()
   }
 
   const triggerFolderSelect = () => {
-    setUploadMenuOpen(false)
     folderInputRef.current?.click()
   }
 
@@ -356,7 +412,7 @@ export default function App() {
   }
 
   return (
-    <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div className="app" onDragOver={handleDragOver} onDrop={handleDrop} onContextMenu={openContextMenu}>
       {notice.message && (
         <div className={`toast ${notice.type === 'error' ? 'toast-error' : 'toast-success'}`} role="status" aria-live="polite">
           {notice.message}
@@ -383,40 +439,12 @@ export default function App() {
         ))}
       </nav>
 
-      <div className="upload-area">
-        <div className="upload-box">
-          <p className="drop-hint">🖱️ 拖拽文件到此上传</p>
-          <div className="button-group" ref={uploadMenuRef}>
-            <button className="upload-menu-button" onClick={() => setUploadMenuOpen(v => !v)} disabled={uploading}>
-              📤 选择上传
-            </button>
-            {uploadMenuOpen && (
-              <div className="upload-menu">
-                <button type="button" onClick={triggerFileSelect}>📄 选择文件</button>
-                <button type="button" onClick={triggerFolderSelect}>📁 选择文件夹</button>
-              </div>
-            )}
-            <button className="create-folder-button" onClick={openCreateFolderModal} disabled={uploading}>
-              📁 新建文件夹
-            </button>
-          </div>
-          <input ref={fileInputRef} type="file" onChange={handleFileSelect} multiple hidden />
-          <input ref={folderInputRef} type="file" directory="" onChange={handleFolderSelect} webkitdirectory="" hidden />
-          {uploading && (
-            <div className="progress-bar">
-              <div className="progress" style={{ width: uploadProgress + '%' }}></div>
-              <span className="progress-text">{uploadProgress}%</span>
-            </div>
-          )}
-        </div>
-      </div>
-
       {loading ? (
         <div className="loading">加载中...</div>
       ) : (
         <div className="file-list">
           {folders.length === 0 && regularFiles.length === 0 ? (
-            <p className="empty">点击上方按钮或拖拽文件上传</p>
+            <p className="empty">右键空白处上传或创建内容</p>
           ) : (
             <>
               {folders.map(folder => (
@@ -448,21 +476,34 @@ export default function App() {
         </div>
       )}
 
-      {folderModalOpen && (
-        <div className="modal-overlay" onClick={() => setFolderModalOpen(false)}>
+      {contextMenu.open && (
+        <div
+          className="context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button onClick={triggerFileSelect}>📄 上传文件</button>
+          <button onClick={triggerFolderSelect}>📁 上传文件夹</button>
+          <button onClick={() => openCreateDialog('folder')}>📁 创建文件夹</button>
+          <button onClick={() => openCreateDialog('txt')}>📝 创建txt文档</button>
+        </div>
+      )}
+
+      {createDialog.open && (
+        <div className="modal-overlay" onClick={() => setCreateDialog(prev => ({ ...prev, open: false }))}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2>新建文件夹</h2>
-            <p>输入文件夹名称后创建目录标记。</p>
+            <h2>{createDialog.type === 'folder' ? '新建文件夹' : '新建txt文档'}</h2>
+            <p>{createDialog.type === 'folder' ? '输入文件夹名称后创建目录标记。' : '输入文件名后创建空文本文件。'}</p>
             <input
               type="text"
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              placeholder="请输入文件夹名称"
-              onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+              value={createDialog.name}
+              onChange={e => setCreateDialog(prev => ({ ...prev, name: e.target.value }))}
+              placeholder={createDialog.type === 'folder' ? '请输入文件夹名称' : '请输入文档名称'}
+              onKeyDown={handleCreateDialogKeyDown}
             />
             <div className="modal-buttons">
-              <button onClick={handleCreateFolder} className="btn-confirm">创建</button>
-              <button onClick={() => setFolderModalOpen(false)} className="btn-cancel">取消</button>
+              <button onClick={handleCreateItem} className="btn-confirm">创建</button>
+              <button onClick={() => setCreateDialog(prev => ({ ...prev, open: false }))} className="btn-cancel">取消</button>
             </div>
           </div>
         </div>
