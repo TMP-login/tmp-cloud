@@ -91,10 +91,30 @@ export default function App() {
 
   const openContextMenu = (event) => {
     event.preventDefault()
+    
+    // 计算菜单位置，确保不会超出屏幕边界
+    const menuWidth = 200 // 预估菜单宽度
+    const menuHeight = 160 // 预估菜单高度
+    const windowWidth = window.innerWidth
+    const windowHeight = window.innerHeight
+    
+    let x = event.clientX
+    let y = event.clientY
+    
+    // 检查右侧边界
+    if (x + menuWidth > windowWidth) {
+      x = windowWidth - menuWidth - 10
+    }
+    
+    // 检查底部边界
+    if (y + menuHeight > windowHeight) {
+      y = windowHeight - menuHeight - 10
+    }
+    
     setContextMenu({
       open: true,
-      x: event.clientX,
-      y: event.clientY
+      x: x,
+      y: y
     })
   }
 
