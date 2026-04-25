@@ -35,6 +35,7 @@ export default function App() {
   const [txtFiles, setTxtFiles] = useState([])
   const [selectedTxtFile, setSelectedTxtFile] = useState(null)
   const [txtFileContent, setTxtFileContent] = useState('')
+  const [editingFileName, setEditingFileName] = useState('')
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -85,9 +86,53 @@ export default function App() {
       const content = await response.text()
       setSelectedTxtFile(file)
       setTxtFileContent(content)
+      setEditingFileName(file.name)
     } catch (error) {
       console.error('获取 TXT 文件内容失败:', error)
       showNotice('获取 TXT 文件内容失败', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 保存 TXT 文件
+  const saveTxtFile = async () => {
+    if (!editingFileName.trim()) {
+      showNotice('文件名不能为空', 'error')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      const blob = new Blob([txtFileContent], { type: 'text/plain' })
+      formData.append('file', blob, editingFileName)
+      formData.append('path', '')
+
+      const response = await fetch(`${API_PREFIX}/upload`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        showNotice('保存成功', 'success')
+        // 重新获取文件列表
+        await fetchTxtFiles()
+        // 如果是新文件，更新选中状态
+        if (!selectedTxtFile || selectedTxtFile.name !== editingFileName) {
+          const updatedFiles = await (await fetch(`${API_PREFIX}/list?path=`)).json()
+          const newFile = updatedFiles.files.find(file => file.name === editingFileName)
+          if (newFile) {
+            setSelectedTxtFile(newFile)
+          }
+        }
+      } else {
+        const error = await response.text()
+        showNotice('保存失败: ' + error, 'error')
+      }
+    } catch (error) {
+      console.error('保存 TXT 文件失败:', error)
+      showNotice('保存 TXT 文件失败', 'error')
     } finally {
       setLoading(false)
     }
@@ -893,26 +938,58 @@ export default function App() {
               </div>
 
               {/* 右侧 TXT 文件内容 */}
-              <div style={{ flex: 2, border: '1px solid #e0e0e0', borderRadius: '8px', padding: '16px', overflow: 'auto' }}>
-                {selectedTxtFile ? (
-                  <>
-                    <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#333' }}>{selectedTxtFile.name}</h3>
-                    <div style={{ 
-                      padding: '16px', 
-                      background: '#f9f9f9', 
-                      borderRadius: '4px', 
-                      whiteSpace: 'pre-wrap', 
+              <div style={{ flex: 2, border: '1px solid #e0e0e0', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {/* 顶部文件名和保存按钮 */}
+                <div style={{ padding: '16px', borderBottom: '1px solid #e0e0e0', backgroundColor: '#f5f5f5' }}>
+                  <input
+                    type="text"
+                    value={editingFileName}
+                    onChange={(e) => setEditingFileName(e.target.value)}
+                    placeholder="输入文件名"
+                    style={{
+                      width: '70%',
+                      padding: '8px 12px',
+                      border: '1px solid #d9d9d9',
+                      borderRadius: '4px',
+                      fontSize: '14px'
+                    }}
+                  />
+                  <button
+                    onClick={saveTxtFile}
+                    style={{
+                      marginLeft: '16px',
+                      padding: '8px 16px',
+                      background: '#1890ff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    保存
+                  </button>
+                </div>
+
+                {/* 底部内容区域 */}
+                <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
+                  <textarea
+                    value={txtFileContent}
+                    onChange={(e) => setTxtFileContent(e.target.value)}
+                    placeholder="输入文档内容..."
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      padding: '16px',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '4px',
+                      resize: 'none',
                       fontFamily: 'monospace',
+                      fontSize: '14px',
                       lineHeight: '1.5'
-                    }}>
-                      {txtFileContent || '(空文档)'}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999' }}>
-                    请选择一个 TXT 文档查看
-                  </div>
-                )}
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )}
