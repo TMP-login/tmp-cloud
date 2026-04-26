@@ -6,30 +6,6 @@ const normalizePath = (path = '') => path
   .replace(/^\/+/, '')
   .replace(/\/+$/, '')
 
-const listAllObjects = async (bucket, prefix = '') => {
-  const objects = []
-  let cursor
-  let truncated = true
-
-  while (truncated) {
-    const result = await bucket.list({
-      prefix,
-      cursor,
-      limit: 1000
-    })
-
-    objects.push(...(result.objects || []))
-    truncated = Boolean(result.truncated)
-    cursor = result.cursor
-
-    if (!truncated || !cursor) {
-      break
-    }
-  }
-
-  return objects
-}
-
 const ensureDirectoryMarkers = async (bucket, objectPath) => {
   const parts = normalizePath(objectPath).split('/').filter(Boolean)
   const markerKeys = []
@@ -99,14 +75,13 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ error: '同名文件或文件夹已存在' }), { status: 409 })
     }
 
-    const allObjects = await listAllObjects(bucket)
-    const totalUsed = allObjects.reduce((sum, obj) => sum + (obj.size || 0), 0)
+    const MAX_SINGLE_FILE = 5 * 1024 * 1024 * 1024 // 5GB 单文件上限
+    if (file.size > MAX_SINGLE_FILE) {
+      return new Response(JSON.stringify({ error: '单个文件不能超过 5GB' }), { status: 413 })
+    }
 
-    const fileSize = file.size
     const LIMIT = 10 * 1024 * 1024 * 1024 // 10GB
-    const newTotal = totalUsed + fileSize
-
-    if (newTotal > LIMIT) {
+    if (file.size > LIMIT) {
       if (!password || password !== UPLOAD_PASSWORD) {
         return new Response(JSON.stringify({ error: '需要正确密码才能上传' }), { status: 403 })
       }
@@ -114,10 +89,9 @@ export async function onRequestPost(context) {
 
     await ensureDirectoryMarkers(bucket, sanitizedPath)
 
-    const buffer = await file.arrayBuffer()
-    await bucket.put(sanitizedPath, buffer, {
+    await bucket.put(sanitizedPath, file.stream(), {
       httpMetadata: {
-        contentType: file.type
+        contentType: file.type || 'application/octet-stream'
       }
     })
 
