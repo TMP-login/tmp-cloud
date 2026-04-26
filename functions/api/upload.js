@@ -75,11 +75,6 @@ export async function onRequestPost(context) {
       return new Response(JSON.stringify({ error: '同名文件或文件夹已存在' }), { status: 409 })
     }
 
-    const MAX_SINGLE_FILE = 5 * 1024 * 1024 * 1024 // 5GB 单文件上限
-    if (file.size > MAX_SINGLE_FILE) {
-      return new Response(JSON.stringify({ error: '单个文件不能超过 5GB' }), { status: 413 })
-    }
-
     const LIMIT = 10 * 1024 * 1024 * 1024 // 10GB
     if (file.size > LIMIT) {
       if (!password || password !== UPLOAD_PASSWORD) {

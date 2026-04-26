@@ -488,29 +488,56 @@ export default function App() {
     setUploading(true)
     setUploadProgress(0)
 
-    try {
-      for (let i = 0; i < filesToUpload.length; i++) {
-        const { file, path } = filesToUpload[i]
+    const totalBytes = filesToUpload.reduce((sum, f) => sum + f.file.size, 0)
+    let completedBytes = 0
+
+    const uploadSingle = (fileObject) => {
+      return new Promise((resolve, reject) => {
+        const { file, path } = fileObject
         const formData = new FormData()
         formData.append('file', file)
         formData.append('path', currentPath ? currentPath + '/' + path : path)
 
-        // 添加密码（如果需要）
         if (passwordPrompt && password) {
           formData.append('password', password)
         }
 
-        const response = await fetch(`${API_PREFIX}/upload`, {
-          method: 'POST',
-          body: formData,
-        })
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', `${API_PREFIX}/upload`)
 
-        if (!response.ok) {
-          throw new Error(`上传失败: ${response.statusText}`)
+        let lastLoaded = 0
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const currentFileProgress = completedBytes + e.loaded
+            setUploadProgress(Math.round((currentFileProgress / totalBytes) * 100))
+            lastLoaded = e.loaded
+          }
         }
 
-        setUploadProgress(Math.round(((i + 1) / filesToUpload.length) * 100))
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            completedBytes += file.size
+            resolve()
+          } else {
+            let message = `上传失败: ${xhr.status}`
+            try {
+              const err = JSON.parse(xhr.responseText)
+              message = err.error || message
+            } catch {}
+            reject(new Error(message))
+          }
         }
+
+        xhr.onerror = () => reject(new Error('网络错误'))
+        xhr.send(formData)
+      })
+    }
+
+    try {
+      for (const fileObject of filesToUpload) {
+        await uploadSingle(fileObject)
+      }
 
       setPassword('')
       setPasswordPrompt(false)
@@ -845,6 +872,18 @@ export default function App() {
               </React.Fragment>
             ))}
           </nav>
+
+          {uploading && (
+            <div style={{ margin: '0 20px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', color: '#555' }}>
+                <span>上传中...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div style={{ height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', background: 'linear-gradient(90deg, #667eea, #764ba2)', borderRadius: '4px', width: uploadProgress + '%', transition: 'width 0.2s' }}></div>
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div className="loading">加载中...</div>
