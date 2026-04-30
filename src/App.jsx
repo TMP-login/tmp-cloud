@@ -17,6 +17,10 @@ export default function App() {
   const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
   const [renamingFolder, setRenamingFolder] = useState(null)
   const [renamingValue, setRenamingValue] = useState('')
+  const [executionLogs, setExecutionLogs] = useState([])
+  const [downloading, setDownloading] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState(0)
+  const [activeTransferName, setActiveTransferName] = useState('')
   const [r2Usage, setR2Usage] = useState({
     storage: 0,
     storageGB: 0,
@@ -39,6 +43,27 @@ export default function App() {
 
   const showNotice = (message, type = 'success') => {
     setNotice({ message, type })
+  }
+
+  const createLogId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+  const addExecutionLog = ({ action, detail, status = 'info', progress = null }) => {
+    const id = createLogId()
+    const entry = {
+      id,
+      action,
+      detail,
+      status,
+      progress,
+      time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    }
+
+    setExecutionLogs(prev => [entry, ...prev].slice(0, 50))
+    return id
+  }
+
+  const updateExecutionLog = (id, patch) => {
+    setExecutionLogs(prev => prev.map(item => item.id === id ? { ...item, ...patch } : item))
   }
 
   // 获取 R2 使用情况
@@ -277,9 +302,16 @@ export default function App() {
   const uploadFiles = async (filesToUpload) => {
     setUploading(true)
     setUploadProgress(0)
+    setActiveTransferName(filesToUpload.length === 1 ? filesToUpload[0].path : `${filesToUpload.length} 个项目`)
 
     const totalBytes = filesToUpload.reduce((sum, f) => sum + f.file.size, 0)
     let completedBytes = 0
+    const batchLogId = addExecutionLog({
+      action: '上传',
+      detail: `开始上传 ${filesToUpload.length} 个项目`,
+      status: 'running',
+      progress: 0
+    })
 
     const uploadSingle = (fileObject) => {
       return new Promise((resolve, reject) => {
@@ -292,22 +324,41 @@ export default function App() {
           formData.append('password', password)
         }
 
+        const fileLogId = addExecutionLog({
+          action: '上传',
+          detail: `准备上传 ${path}`,
+          status: 'running',
+          progress: 0
+        })
+
         const xhr = new XMLHttpRequest()
         xhr.open('POST', `${API_PREFIX}/upload`)
 
-        let lastLoaded = 0
-
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
-            const currentFileProgress = completedBytes + e.loaded
-            setUploadProgress(Math.round((currentFileProgress / totalBytes) * 100))
-            lastLoaded = e.loaded
+            const currentFilePercent = file.size > 0 ? Math.round((e.loaded / file.size) * 100) : 100
+            const totalPercent = totalBytes > 0 ? Math.round(((completedBytes + e.loaded) / totalBytes) * 100) : 100
+            setUploadProgress(totalPercent)
+
+            updateExecutionLog(fileLogId, {
+              progress: currentFilePercent,
+              detail: `上传中 ${path} (${currentFilePercent}%)`
+            })
+            updateExecutionLog(batchLogId, {
+              progress: totalPercent,
+              detail: `批量上传进行中 (${totalPercent}%)`
+            })
           }
         }
 
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             completedBytes += file.size
+            updateExecutionLog(fileLogId, {
+              status: 'success',
+              progress: 100,
+              detail: `上传完成 ${path}`
+            })
             resolve()
           } else {
             let message = `上传失败: ${xhr.status}`
@@ -315,11 +366,23 @@ export default function App() {
               const err = JSON.parse(xhr.responseText)
               message = err.error || message
             } catch {}
+
+            updateExecutionLog(fileLogId, {
+              status: 'error',
+              detail: `上传失败 ${path}: ${message}`
+            })
             reject(new Error(message))
           }
         }
 
-        xhr.onerror = () => reject(new Error('网络错误'))
+        xhr.onerror = () => {
+          updateExecutionLog(fileLogId, {
+            status: 'error',
+            detail: `上传失败 ${path}: 网络错误`
+          })
+          reject(new Error('网络错误'))
+        }
+
         xhr.send(formData)
       })
     }
@@ -329,6 +392,11 @@ export default function App() {
         await uploadSingle(fileObject)
       }
 
+      updateExecutionLog(batchLogId, {
+        status: 'success',
+        progress: 100,
+        detail: `批量上传完成 (${filesToUpload.length} 个项目)`
+      })
       setPassword('')
       setPasswordPrompt(false)
       setPendingFiles(null)
@@ -336,10 +404,15 @@ export default function App() {
       fetchFiles()
     } catch (error) {
       console.error('上传错误:', error)
+      updateExecutionLog(batchLogId, {
+        status: 'error',
+        detail: `批量上传失败: ${error.message}`
+      })
       showNotice('上传失败: ' + error.message, 'error')
     } finally {
       setUploading(false)
       setUploadProgress(0)
+      setActiveTransferName('')
     }
   }
 
@@ -475,9 +548,86 @@ export default function App() {
   }
 
   // 下载文件
-  const handleDownload = (fileName, isDirectory = false) => {
+  const handleDownload = async (fileName, isDirectory = false) => {
     const path = currentPath ? currentPath + '/' + fileName : fileName
-    window.location.href = `${API_PREFIX}/download?path=${encodeURIComponent(path)}${isDirectory ? '&type=folder' : ''}`
+    const fallbackName = isDirectory ? `${fileName}.zip` : fileName
+    const downloadLogId = addExecutionLog({
+      action: '下载',
+      detail: `开始下载 ${fileName}`,
+      status: 'running',
+      progress: 0
+    })
+
+    setDownloading(true)
+    setDownloadProgress(0)
+    setActiveTransferName(fileName)
+
+    try {
+      const response = await fetch(`${API_PREFIX}/download?path=${encodeURIComponent(path)}${isDirectory ? '&type=folder' : ''}`)
+      if (!response.ok) {
+        throw new Error(`下载失败: ${response.status}`)
+      }
+
+      const total = Number(response.headers.get('content-length') || 0)
+
+      let blob
+      if (response.body) {
+        const reader = response.body.getReader()
+        const chunks = []
+        let received = 0
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(value)
+          received += value.length
+
+          if (total > 0) {
+            const percent = Math.round((received / total) * 100)
+            setDownloadProgress(percent)
+            updateExecutionLog(downloadLogId, {
+              progress: percent,
+              detail: `下载中 ${fileName} (${formatSize(received)} / ${formatSize(total)})`
+            })
+          } else {
+            updateExecutionLog(downloadLogId, {
+              detail: `下载中 ${fileName} (${formatSize(received)})`
+            })
+          }
+        }
+
+        blob = new Blob(chunks)
+      } else {
+        blob = await response.blob()
+      }
+
+      const downloadLink = document.createElement('a')
+      const objectUrl = URL.createObjectURL(blob)
+      downloadLink.href = objectUrl
+      downloadLink.download = fallbackName
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      downloadLink.remove()
+      URL.revokeObjectURL(objectUrl)
+
+      setDownloadProgress(100)
+      updateExecutionLog(downloadLogId, {
+        status: 'success',
+        progress: 100,
+        detail: `下载完成 ${fileName}`
+      })
+      showNotice('下载成功', 'success')
+    } catch (error) {
+      updateExecutionLog(downloadLogId, {
+        status: 'error',
+        detail: `下载失败 ${fileName}: ${error.message}`
+      })
+      showNotice('下载失败: ' + error.message, 'error')
+    } finally {
+      setDownloading(false)
+      setDownloadProgress(0)
+      setActiveTransferName('')
+    }
   }
 
   // 进入文件夹
@@ -611,7 +761,7 @@ export default function App() {
 
       <header className="header" style={{ padding: '20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#333', lineHeight: 1 }}>临时网盘</h1>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#333', lineHeight: 1 }}>📁 临时网盘</h1>
           <div style={{ marginTop: '10px' }}>
             <div style={{ width: '96px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
               <div 
@@ -642,17 +792,54 @@ export default function App() {
             ))}
           </nav>
 
-          {uploading && (
+          {(uploading || downloading) && (
             <div style={{ margin: '0 20px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px', color: '#555' }}>
-                <span>上传中...</span>
-                <span>{uploadProgress}%</span>
+                <span>{uploading ? '上传中...' : '下载中...'} {activeTransferName ? `(${activeTransferName})` : ''}</span>
+                <span>{uploading ? uploadProgress : downloadProgress}%</span>
               </div>
               <div style={{ height: '8px', background: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', background: 'linear-gradient(90deg, #667eea, #764ba2)', borderRadius: '4px', width: uploadProgress + '%', transition: 'width 0.2s' }}></div>
+                <div style={{ height: '100%', background: 'linear-gradient(90deg, #667eea, #764ba2)', borderRadius: '4px', width: (uploading ? uploadProgress : downloadProgress) + '%', transition: 'width 0.2s' }}></div>
               </div>
             </div>
           )}
+
+          <section style={{ margin: '0 20px 16px', background: 'rgba(255,255,255,0.92)', border: '1px solid #e8ebff', borderRadius: '10px', padding: '12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', color: '#334', fontWeight: 600 }}>执行日志</h3>
+              <button
+                onClick={() => setExecutionLogs([])}
+                style={{ border: '1px solid #d9d9d9', background: 'white', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#555' }}
+              >
+                清空
+              </button>
+            </div>
+            {executionLogs.length === 0 ? (
+              <p style={{ margin: 0, color: '#8c8c8c', fontSize: '12px' }}>暂无执行记录，上传或下载后会显示详细日志与进度。</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '2px' }}>
+                {executionLogs.map(log => (
+                  <div key={log.id} style={{ border: '1px solid #edf0ff', background: '#fff', borderRadius: '8px', padding: '8px 10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: '#425', fontWeight: 600 }}>{log.action}</span>
+                      <span style={{ fontSize: '11px', color: '#999' }}>{log.time}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{log.detail}</span>
+                      <span style={{ fontSize: '11px', color: log.status === 'error' ? '#ff4d4f' : (log.status === 'success' ? '#52c41a' : '#1677ff'), whiteSpace: 'nowrap' }}>
+                        {log.status === 'running' ? '进行中' : (log.status === 'success' ? '成功' : (log.status === 'error' ? '失败' : '信息'))}
+                      </span>
+                    </div>
+                    {typeof log.progress === 'number' && (
+                      <div style={{ marginTop: '6px', height: '4px', background: '#eef1ff', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, log.progress))}%`, background: log.status === 'error' ? '#ff7875' : 'linear-gradient(90deg, #5b8cff, #7a67ee)', transition: 'width 0.2s' }}></div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           {loading ? (
             <div className="loading">加载中...</div>
