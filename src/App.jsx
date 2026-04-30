@@ -16,6 +16,7 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0 })
   const [createDialog, setCreateDialog] = useState({ open: false, type: 'folder', name: '' })
   const [renamingFolder, setRenamingFolder] = useState(null)
+  const [renamingFile, setRenamingFile] = useState(null)
   const [renamingValue, setRenamingValue] = useState('')
   const [executionLogs, setExecutionLogs] = useState([])
   const [downloading, setDownloading] = useState(false)
@@ -40,6 +41,7 @@ export default function App() {
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
   const folderClickTimerRef = useRef(null)
+  const fileClickTimerRef = useRef(null)
 
   const LIMIT = 10 * 1024 * 1024 * 1024 // 10GB
 
@@ -112,14 +114,14 @@ export default function App() {
   }, [notice])
 
   useEffect(() => {
-    if (renamingFolder && renameInputRef.current) {
+    if ((renamingFolder || renamingFile) && renameInputRef.current) {
       // 聚焦输入框并选择所有文本
       setTimeout(() => {
         renameInputRef.current.focus()
         renameInputRef.current.select()
       }, 100)
     }
-  }, [renamingFolder])
+  }, [renamingFolder, renamingFile])
 
   useEffect(() => {
     const handleGlobalClose = () => {
@@ -140,6 +142,10 @@ export default function App() {
       if (folderClickTimerRef.current) {
         clearTimeout(folderClickTimerRef.current)
         folderClickTimerRef.current = null
+      }
+      if (fileClickTimerRef.current) {
+        clearTimeout(fileClickTimerRef.current)
+        fileClickTimerRef.current = null
       }
       document.removeEventListener('mousedown', handleGlobalClose)
       document.removeEventListener('keydown', handleEscape)
@@ -643,8 +649,15 @@ export default function App() {
   }
 
   const startRenameFolder = (folderName) => {
+    setRenamingFile(null)
     setRenamingFolder(folderName)
     setRenamingValue(folderName)
+  }
+
+  const startRenameFile = (fileName) => {
+    setRenamingFolder(null)
+    setRenamingFile(fileName)
+    setRenamingValue(fileName)
   }
 
   const handleFolderNameClick = (folderName) => {
@@ -670,6 +683,30 @@ export default function App() {
     }
 
     startRenameFolder(folderName)
+  }
+
+  const handleFileNameClick = (fileName) => {
+    if (renamingFile) return
+    if (fileClickTimerRef.current) {
+      clearTimeout(fileClickTimerRef.current)
+      fileClickTimerRef.current = null
+    }
+
+    fileClickTimerRef.current = setTimeout(() => {
+      fileClickTimerRef.current = null
+    }, 220)
+  }
+
+  const handleFileNameDoubleClick = (event, fileName) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (fileClickTimerRef.current) {
+      clearTimeout(fileClickTimerRef.current)
+      fileClickTimerRef.current = null
+    }
+
+    startRenameFile(fileName)
   }
 
   // 拖拽处理
@@ -708,43 +745,46 @@ export default function App() {
     folderInputRef.current?.click()
   }
 
-  // 处理文件夹重命名
+  // 处理文件/文件夹重命名
   const handleRenameComplete = async () => {
-    if (!renamingFolder || !renamingValue.trim()) {
+    const activeRenameName = renamingFolder || renamingFile
+    const activeRenameIsDirectory = Boolean(renamingFolder)
+
+    if (!activeRenameName || !renamingValue.trim()) {
       setRenamingFolder(null)
+      setRenamingFile(null)
       setRenamingValue('')
       return
     }
 
-    const sanitizedName = sanitizeFolderName(renamingValue)
-    if (sanitizedName !== renamingFolder) {
-      // 检查是否已存在同名文件夹
-      if (files.some(file => file.name === sanitizedName && file.isDirectory)) {
-        showNotice('同名文件夹已存在', 'error')
+    const sanitizedName = activeRenameIsDirectory
+      ? sanitizeFolderName(renamingValue)
+      : sanitizeFileName(renamingValue)
+
+    if (sanitizedName !== activeRenameName) {
+      // 检查是否已存在同名文件或文件夹
+      if (files.some(file => file.name === sanitizedName && file.name !== activeRenameName)) {
+        showNotice(activeRenameIsDirectory ? '同名文件夹已存在' : '同名文件已存在', 'error')
         return
       }
 
       try {
-        // 先删除原文件夹
-        await fetch(`${API_PREFIX}/delete`, {
+        const response = await fetch(`${API_PREFIX}/rename`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            path: currentPath ? currentPath + '/' + renamingFolder : renamingFolder,
-            isDirectory: true
+            oldPath: currentPath ? currentPath + '/' + activeRenameName : activeRenameName,
+            newPath: currentPath ? currentPath + '/' + sanitizedName : sanitizedName,
+            isDirectory: activeRenameIsDirectory
           })
         })
 
-        // 再创建新文件夹
-        await fetch(`${API_PREFIX}/create-folder`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            path: currentPath ? currentPath + '/' + sanitizedName : sanitizedName
-          })
-        })
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(data.error || '重命名失败')
+        }
 
-        showNotice('文件夹重命名成功', 'success')
+        showNotice(activeRenameIsDirectory ? '文件夹重命名成功' : '文件重命名成功', 'success')
         await fetchFiles()
       } catch (error) {
         showNotice('重命名失败: ' + error.message, 'error')
@@ -752,11 +792,13 @@ export default function App() {
     }
 
     setRenamingFolder(null)
+    setRenamingFile(null)
     setRenamingValue('')
   }
 
   const handleRenameCancel = () => {
     setRenamingFolder(null)
+    setRenamingFile(null)
     setRenamingValue('')
   }
 
@@ -875,7 +917,7 @@ export default function App() {
               ) : (
                 <>
                   {folders.map(folder => (
-                    <div key={folder.name} className="file-item folder-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f5f5ff', border: '1px solid #e0d4ff', borderRadius: '8px', marginBottom: '10px', transition: 'all 0.2s' }}>
+                    <div key={folder.name} className="file-item folder-item" onClick={() => handleFolderNameClick(folder.name)} onDoubleClick={(e) => handleFolderNameDoubleClick(e, folder.name)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f5f5ff', border: '1px solid #e0d4ff', borderRadius: '8px', marginBottom: '10px', transition: 'all 0.2s', cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
                         <span style={{ fontSize: '18px' }}>📁</span>
                         {renamingFolder === folder.name ? (
@@ -902,7 +944,6 @@ export default function App() {
                         ) : (
                           <span 
                             style={{ 
-                              cursor: 'pointer',
                               fontWeight: '500',
                               color: '#1890ff',
                               whiteSpace: 'nowrap',
@@ -910,8 +951,6 @@ export default function App() {
                               textOverflow: 'ellipsis',
                               flex: 1
                             }}
-                            onClick={() => handleFolderNameClick(folder.name)}
-                            onDoubleClick={(e) => handleFolderNameDoubleClick(e, folder.name)}
                           >
                             {folder.name}
                           </span>
@@ -952,7 +991,7 @@ export default function App() {
                     </div>
                   ))}
                   {regularFiles.map(file => (
-                    <div key={file.name} className="file-item" style={{ 
+                    <div key={file.name} className="file-item" onClick={() => handleFileNameClick(file.name)} onDoubleClick={(e) => handleFileNameDoubleClick(e, file.name)} style={{ 
                       display: 'flex', 
                       justifyContent: 'space-between', 
                       alignItems: 'center', 
@@ -962,23 +1001,47 @@ export default function App() {
                       borderRadius: '8px', 
                       marginBottom: '10px', 
                       transition: 'all 0.2s',
-                      flexWrap: 'wrap'
+                      flexWrap: 'wrap',
+                      cursor: 'pointer'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, marginBottom: '8px' }}>
                         <span style={{ fontSize: '18px' }}>📄</span>
-                        <span 
-                          style={{ 
-                            fontWeight: '500',
-                            color: '#333',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            flex: 1,
-                            minWidth: '100px'
-                          }}
-                        >
-                          {file.name}
-                        </span>
+                        {renamingFile === file.name ? (
+                          <input
+                            ref={renameInputRef}
+                            type="text"
+                            value={renamingValue}
+                            onChange={(e) => setRenamingValue(e.target.value)}
+                            onBlur={handleRenameComplete}
+                            onKeyDown={handleRenameKeyDown}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              fontWeight: '500',
+                              color: '#333',
+                              border: '1px solid #d9d9d9',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              fontSize: '14px',
+                              outline: 'none'
+                            }}
+                          />
+                        ) : (
+                          <span 
+                            style={{ 
+                              fontWeight: '500',
+                              color: '#333',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1,
+                              minWidth: '100px'
+                            }}
+                          >
+                            {file.name}
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', whiteSpace: 'nowrap', width: '100%', justifyContent: 'flex-end' }}>
                         <div style={{ display: 'flex', gap: '10px', color: '#666', fontSize: '12px', marginRight: '16px' }}>
@@ -987,7 +1050,7 @@ export default function App() {
                         </div>
                         <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap' }}>
                           <button 
-                            onClick={() => handleDownload(file.name)} 
+                            onClick={(e) => { e.stopPropagation(); handleDownload(file.name) }} 
                             style={{ 
                               background: 'white',
                               border: '1px solid #e0e0e0',
@@ -1002,7 +1065,7 @@ export default function App() {
                             ⬇️ 下载
                           </button>
                           <button 
-                            onClick={() => handleDelete(file.name)} 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(file.name) }} 
                             style={{ 
                               background: 'white',
                               border: '1px solid #e0e0e0',

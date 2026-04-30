@@ -1,2 +1,0 @@
-curl -X GET "https://api.cloudflare.com/client/v4/accounts/5d4a9e31fb626889b130410ed0590d86/tokens/verify" \
-     -H "Authorization: Bearer cfat_iWZa79Q2RncrI629SeGj93EA10MWsYSmbE1lssfw315757d1"
