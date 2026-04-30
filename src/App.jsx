@@ -21,6 +21,7 @@ export default function App() {
   const [downloading, setDownloading] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [activeTransferName, setActiveTransferName] = useState('')
+  const [showLogModal, setShowLogModal] = useState(false)
   const [r2Usage, setR2Usage] = useState({
     storage: 0,
     storageGB: 0,
@@ -759,11 +760,11 @@ export default function App() {
         </div>
       )}
 
-      <header className="header" style={{ padding: '20px' }}>
+      <header className="header" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
           <h1 style={{ margin: 0, fontSize: '24px', color: '#333', lineHeight: 1 }}>📁 临时网盘</h1>
           <div style={{ marginTop: '10px' }}>
-            <div style={{ width: '96px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
+            <div style={{ width: '140px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
               <div 
                 style={{ 
                   height: '100%', 
@@ -775,6 +776,31 @@ export default function App() {
             </div>
           </div>
         </div>
+        <button
+          onClick={() => setShowLogModal(true)}
+          style={{
+            background: '#fff',
+            border: '1px solid #d9d9d9',
+            borderRadius: '6px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            cursor: 'pointer',
+            color: '#333',
+            fontWeight: 500,
+            transition: 'all 0.2s',
+            height: 'fit-content'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = '#f5f5f5'
+            e.target.style.borderColor = '#40a9ff'
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = '#fff'
+            e.target.style.borderColor = '#d9d9d9'
+          }}
+        >
+          📋 日志
+        </button>
       </header>
 
       <>
@@ -803,43 +829,6 @@ export default function App() {
               </div>
             </div>
           )}
-
-          <section style={{ margin: '0 20px 16px', background: 'rgba(255,255,255,0.92)', border: '1px solid #e8ebff', borderRadius: '10px', padding: '12px 14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', color: '#334', fontWeight: 600 }}>执行日志</h3>
-              <button
-                onClick={() => setExecutionLogs([])}
-                style={{ border: '1px solid #d9d9d9', background: 'white', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', color: '#555' }}
-              >
-                清空
-              </button>
-            </div>
-            {executionLogs.length === 0 ? (
-              <p style={{ margin: 0, color: '#8c8c8c', fontSize: '12px' }}>暂无执行记录，上传或下载后会显示详细日志与进度。</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', paddingRight: '2px' }}>
-                {executionLogs.map(log => (
-                  <div key={log.id} style={{ border: '1px solid #edf0ff', background: '#fff', borderRadius: '8px', padding: '8px 10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '12px', color: '#425', fontWeight: 600 }}>{log.action}</span>
-                      <span style={{ fontSize: '11px', color: '#999' }}>{log.time}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                      <span style={{ fontSize: '12px', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{log.detail}</span>
-                      <span style={{ fontSize: '11px', color: log.status === 'error' ? '#ff4d4f' : (log.status === 'success' ? '#52c41a' : '#1677ff'), whiteSpace: 'nowrap' }}>
-                        {log.status === 'running' ? '进行中' : (log.status === 'success' ? '成功' : (log.status === 'error' ? '失败' : '信息'))}
-                      </span>
-                    </div>
-                    {typeof log.progress === 'number' && (
-                      <div style={{ marginTop: '6px', height: '4px', background: '#eef1ff', borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, log.progress))}%`, background: log.status === 'error' ? '#ff7875' : 'linear-gradient(90deg, #5b8cff, #7a67ee)', transition: 'width 0.2s' }}></div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
 
           {loading ? (
             <div className="loading">加载中...</div>
@@ -1026,6 +1015,53 @@ export default function App() {
               <button onClick={handlePasswordUpload} className="btn-confirm">上传</button>
               <button onClick={() => { setPasswordPrompt(false); setPassword('') }} className="btn-cancel">取消</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showLogModal && (
+        <div className="modal-overlay" onClick={() => setShowLogModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0 }}>执行日志</h2>
+              <button
+                onClick={() => setShowLogModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#999', padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px', borderTop: '1px solid #f0f0f0', paddingTop: '16px' }}>
+              {executionLogs.length === 0 ? (
+                <p style={{ margin: 0, color: '#8c8c8c', fontSize: '13px', textAlign: 'center', padding: '40px 20px' }}>暂无执行记录，上传或下载后会显示详细日志与进度。</p>
+              ) : (
+                executionLogs.map(log => (
+                  <div key={log.id} style={{ border: '1px solid #edf0ff', background: '#fafbff', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '13px', color: '#425', fontWeight: 600 }}>{log.action}</span>
+                        <span style={{ fontSize: '12px', color: log.status === 'error' ? '#ff4d4f' : (log.status === 'success' ? '#52c41a' : '#1677ff') }}>
+                          {log.status === 'running' ? '进行中' : (log.status === 'success' ? '✓ 成功' : (log.status === 'error' ? '✕ 失败' : '信息'))}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#999' }}>{log.time}</span>
+                    </div>
+                    <p style={{ margin: '6px 0 8px', fontSize: '13px', color: '#555', wordBreak: 'break-word' }}>{log.detail}</p>
+                    {typeof log.progress === 'number' && (
+                      <div style={{ height: '4px', background: '#eef1ff', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.max(0, Math.min(100, log.progress))}%`, background: log.status === 'error' ? '#ff7875' : 'linear-gradient(90deg, #5b8cff, #7a67ee)', transition: 'width 0.2s' }}></div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+            <button
+              onClick={() => setExecutionLogs([])}
+              style={{ border: '1px solid #d9d9d9', background: 'white', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', color: '#555', alignSelf: 'flex-end' }}
+            >
+              清空日志
+            </button>
           </div>
         </div>
       )}
