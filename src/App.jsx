@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react'
 const API_PREFIX = '/api'
 
 export default function App() {
-  const [activeNav, setActiveNav] = useState('drive') // 'drive' or 'docs'
   const [files, setFiles] = useState([])
   const [currentPath, setCurrentPath] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,9 +31,6 @@ export default function App() {
       percentage: 0
     }
   })
-  const [docEntries, setDocEntries] = useState([''])
-  const [isModified, setIsModified] = useState(false)
-  const [autoSaveTimer, setAutoSaveTimer] = useState(null)
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
@@ -58,213 +54,13 @@ export default function App() {
     }
   }
 
-  // 保存文档
-  const saveDoc = async () => {
-    try {
-      // 确保始终有一个空条目
-      const entriesToDisplay = [...docEntries]
-      if (entriesToDisplay.length === 0 || entriesToDisplay[entriesToDisplay.length - 1].trim() !== '') {
-        entriesToDisplay.push('')
-      }
-      setDocEntries(entriesToDisplay)
-      
-      // 保存时只保存有内容的条目
-      const entriesToSave = entriesToDisplay.filter(e => e.trim() !== '')
-      const jsonContent = JSON.stringify({ entries: entriesToSave }, null, 2)
-
-      const formData = new FormData()
-      const blob = new Blob([jsonContent], { type: 'text/plain' })
-      formData.append('file', blob, 'notes.json')
-      formData.append('path', 'notes.json')
-
-      const response = await fetch(`${API_PREFIX}/upload`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        setIsModified(false)
-        showNotice('已保存', 'success')
-      } else {
-        const error = await response.text()
-        showNotice('保存失败: ' + error, 'error')
-      }
-    } catch (error) {
-      console.error('保存文档失败:', error)
-      showNotice('保存失败', 'error')
-    }
-  }
-
-  // 手动保存
-  const handleManualSave = async () => {
-    if (autoSaveTimer) {
-      clearTimeout(autoSaveTimer)
-      setAutoSaveTimer(null)
-    }
-    await saveDoc()
-  }
-
-  // 自动保存（防抖）
-  useEffect(() => {
-    if (autoSaveTimer) {
-      clearTimeout(autoSaveTimer)
-    }
-
-    const timer = setTimeout(() => {
-      saveDoc()
-    }, 2000) // 2秒后自动保存
-
-    setAutoSaveTimer(timer)
-
-    return () => {
-      if (timer) clearTimeout(timer)
-    }
-  }, [docEntries])
-
-  // 保存单条条目
-  const saveSingleEntry = async (index) => {
-    const currentEntries = [...docEntries]
-    const value = currentEntries[index]?.trim()
-
-    // 如果是最后一个空条目且为空，则不保存
-    if (index === currentEntries.length - 1 && !value) {
-      return
-    }
-
-    // 如果是空的非最后条目，则不保存
-    if (!value && index !== currentEntries.length - 1) {
-      showNotice('内容不能为空', 'error')
-      return
-    }
-
-    try {
-      // 如果是最后一个条目（新增）且有内容，添加新的空条目
-      if (index === currentEntries.length - 1 && value) {
-        currentEntries.push('')
-      }
-
-      // 保存所有非空条目
-      const entriesToSave = currentEntries.filter((e, i) => i < currentEntries.length - 1 && e.trim() !== '')
-      const jsonContent = JSON.stringify({ entries: entriesToSave }, null, 2)
-
-      const formData = new FormData()
-      const blob = new Blob([jsonContent], { type: 'text/plain' })
-      formData.append('file', blob, 'notes.json')
-      formData.append('path', 'notes.json')
-
-      const response = await fetch(`${API_PREFIX}/upload`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (response.ok) {
-        setDocEntries(currentEntries)
-        showNotice('保存成功', 'success')
-      } else {
-        const error = await response.text()
-        showNotice('保存失败: ' + error, 'error')
-      }
-    } catch (error) {
-      console.error('保存条目失败:', error)
-      showNotice('保存失败', 'error')
-    }
-  }
-
-  // 删除单条条目
-  const deleteSingleEntry = async (index) => {
-    try {
-      const newEntries = docEntries.filter((_, i) => i !== index)
-      
-      // 如果删除后没有空条目，添加一个
-      if (newEntries.length === 0 || newEntries[newEntries.length - 1].trim() !== '') {
-        newEntries.push('')
-      }
-      setDocEntries(newEntries)
-      setIsModified(true)
-      showNotice('删除成功', 'success')
-    } catch (error) {
-      console.error('删除条目失败:', error)
-      showNotice('删除失败', 'error')
-    }
-  }
-
-  // 创建空的文档
-  const createEmptyDoc = async () => {
-    const jsonContent = JSON.stringify({ entries: [] }, null, 2)
-    
-    const formData = new FormData()
-    const blob = new Blob([jsonContent], { type: 'text/plain' })
-    formData.append('file', blob, 'notes.json')
-    formData.append('path', 'notes.json')
-
-    const response = await fetch(`${API_PREFIX}/upload`, {
-      method: 'POST',
-      body: formData
-    })
-
-    if (!response.ok) {
-      throw new Error('创建文档失败')
-    }
-  }
-
-  // 加载文档
-  const loadDoc = async () => {
-    setLoading(true)
-    try {
-      let response = await fetch(`${API_PREFIX}/download?path=notes.json`)
-      if (!response.ok) {
-        // 如果没有文档，创建空的
-        await createEmptyDoc()
-        response = await fetch(`${API_PREFIX}/download?path=notes.json`)
-        if (!response.ok) {
-          setDocEntries([''])
-          setIsModified(false)
-          return
-        }
-      }
-      const content = await response.text()
-      try {
-        const json = JSON.parse(content)
-        if (Array.isArray(json.entries)) {
-          // 确保最后始终有一个空条目
-          const entries = [...json.entries]
-          if (entries.length === 0 || entries[entries.length - 1].trim() !== '') {
-            entries.push('')
-          }
-          setDocEntries(entries)
-          setIsModified(false)
-        } else {
-          setDocEntries([''])
-          setIsModified(false)
-        }
-      } catch {
-        setDocEntries([''])
-        setIsModified(false)
-      }
-    } catch (error) {
-      console.error('加载文档失败:', error)
-      setDocEntries([''])
-      setIsModified(false)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (activeNav === 'docs') {
-      loadDoc()
-    }
-  }, [activeNav])
-
   // 获取文件列表
   const fetchFiles = async () => {
     setLoading(true)
     try {
       const response = await fetch(`${API_PREFIX}/list?path=${encodeURIComponent(currentPath)}`)
       const data = await response.json()
-      // 过滤掉 JSON 文件（用于临时文档存储）
-      const filteredFiles = (data.files || []).filter(file => !file.name.toLowerCase().endsWith('.json'))
-      setFiles(filteredFiles)
+      setFiles(data.files || [])
       setTotalUsed(data.totalUsed || 0)
     } catch (error) {
       console.error('获取文件列表失败:', error)
@@ -281,12 +77,6 @@ export default function App() {
   useEffect(() => {
     fetchR2Usage()
   }, [])
-
-  useEffect(() => {
-    if (activeNav === 'docs') {
-      loadDoc()
-    }
-  }, [activeNav])
 
   useEffect(() => {
     if (!notice.message) return
@@ -821,29 +611,9 @@ export default function App() {
 
       <header className="header" style={{ padding: '20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-          <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>
-            <span 
-              onClick={() => setActiveNav('drive')}
-              style={{ 
-                cursor: 'pointer',
-                color: activeNav === 'drive' ? '#1890ff' : '#333'
-              }}
-            >
-              📁 临时网盘
-            </span>
-            <span style={{ color: '#ccc', margin: '0 12px' }}>/</span>
-            <span 
-              onClick={() => setActiveNav('docs')}
-              style={{ 
-                cursor: 'pointer',
-                color: activeNav === 'docs' ? '#1890ff' : '#333'
-              }}
-            >
-              📝 临时文档
-            </span>
-          </h1>
+          <h1 style={{ margin: 0, fontSize: '24px', color: '#333', lineHeight: 1 }}>临时网盘</h1>
           <div style={{ marginTop: '10px' }}>
-            <div style={{ width: '309px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
+            <div style={{ width: '96px', height: '4px', background: '#e0e0e0', borderRadius: '2px', overflow: 'hidden', marginTop: '4px' }}>
               <div 
                 style={{ 
                   height: '100%', 
@@ -857,8 +627,7 @@ export default function App() {
         </div>
       </header>
 
-      {activeNav === 'drive' && (
-        <>
+      <>
           <nav className="breadcrumb" style={{ backgroundColor: '#f0f7ff', padding: '12px 16px', borderRadius: '6px', borderLeft: '4px solid #1890ff', margin: '20px' }}>
             <button onClick={goRoot} style={{ color: '#1890ff', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: '4px', transition: 'all 0.2s' }}>
               首页
@@ -1032,98 +801,7 @@ export default function App() {
               <button onClick={() => openCreateDialog('txt')}>📝 创建txt文档</button>
             </div>
           )}
-        </>
-      )}
-
-      {activeNav === 'docs' && (
-        <div style={{ margin: '20px' }}>
-          {loading ? (
-            <div className="loading">加载中...</div>
-          ) : (
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px' }}>
-                <button
-                  onClick={handleManualSave}
-                  style={{
-                    padding: '8px 16px',
-                    background: isModified ? '#1890ff' : '#d9d9d9',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: isModified ? 'pointer' : 'default',
-                    fontSize: '14px'
-                  }}
-                  disabled={!isModified}
-                >
-                  {isModified ? '💾 手动保存' : '✓ 已保存'}
-                </button>
-              </div>
-              {/* 条目列表 */}
-              <div>
-                {docEntries.map((entry, index) => (
-                  <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'flex-start' }}>
-                    <textarea
-                      value={entry}
-                      onChange={(e) => {
-                        const newEntries = [...docEntries]
-                        newEntries[index] = e.target.value
-                        
-                        // 如果在最后一个条目输入内容，自动添加新的空条目
-                        if (index === newEntries.length - 1 && e.target.value.trim() !== '') {
-                          if (newEntries.length === 0 || newEntries[newEntries.length - 1].trim() !== '') {
-                            newEntries.push('')
-                          }
-                        }
-                        
-                        setDocEntries(newEntries)
-                        setIsModified(true)
-                        // 自动调整高度
-                        e.target.style.height = 'auto'
-                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
-                      }}
-                      onInput={(e) => {
-                        // 自动调整高度
-                        e.target.style.height = 'auto'
-                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
-                      }}
-                      placeholder={`条目 ${index + 1}`}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        border: '1px solid #d9d9d9',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        minHeight: '32px',
-                        maxHeight: '200px',
-                        resize: 'none',
-                        fontFamily: 'inherit',
-                        lineHeight: '1.4',
-                        overflow: 'hidden'
-                      }}
-                    />
-                    <button
-                      onClick={() => deleteSingleEntry(index)}
-                      style={{
-                        padding: '8px 16px',
-                        background: '#ff4d4f',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        height: '32px',
-                        flexShrink: 0
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      </>
 
       {createDialog.open && (
         <div className="modal-overlay" onClick={() => setCreateDialog(prev => ({ ...prev, open: false }))}>
