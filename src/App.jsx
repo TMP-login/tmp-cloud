@@ -39,6 +39,7 @@ export default function App() {
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
   const renameInputRef = useRef(null)
+  const folderClickTimerRef = useRef(null)
 
   const LIMIT = 10 * 1024 * 1024 * 1024 // 10GB
 
@@ -136,6 +137,10 @@ export default function App() {
     document.addEventListener('mousedown', handleGlobalClose)
     document.addEventListener('keydown', handleEscape)
     return () => {
+      if (folderClickTimerRef.current) {
+        clearTimeout(folderClickTimerRef.current)
+        folderClickTimerRef.current = null
+      }
       document.removeEventListener('mousedown', handleGlobalClose)
       document.removeEventListener('keydown', handleEscape)
     }
@@ -637,6 +642,36 @@ export default function App() {
     navigateTo(newPath)
   }
 
+  const startRenameFolder = (folderName) => {
+    setRenamingFolder(folderName)
+    setRenamingValue(folderName)
+  }
+
+  const handleFolderNameClick = (folderName) => {
+    if (renamingFolder) return
+    if (folderClickTimerRef.current) {
+      clearTimeout(folderClickTimerRef.current)
+      folderClickTimerRef.current = null
+    }
+
+    folderClickTimerRef.current = setTimeout(() => {
+      enterFolder(folderName)
+      folderClickTimerRef.current = null
+    }, 220)
+  }
+
+  const handleFolderNameDoubleClick = (event, folderName) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (folderClickTimerRef.current) {
+      clearTimeout(folderClickTimerRef.current)
+      folderClickTimerRef.current = null
+    }
+
+    startRenameFolder(folderName)
+  }
+
   // 拖拽处理
   const handleDragOver = (e) => {
     e.preventDefault()
@@ -727,7 +762,8 @@ export default function App() {
 
   const handleRenameKeyDown = (e) => {
     if (e.key === 'Enter') {
-      handleRenameComplete()
+      e.preventDefault()
+      e.currentTarget.blur()
     } else if (e.key === 'Escape') {
       handleRenameCancel()
     }
@@ -842,20 +878,44 @@ export default function App() {
                     <div key={folder.name} className="file-item folder-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f5f5ff', border: '1px solid #e0d4ff', borderRadius: '8px', marginBottom: '10px', transition: 'all 0.2s' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
                         <span style={{ fontSize: '18px' }}>📁</span>
-                        <span 
-                          style={{ 
-                            cursor: 'pointer',
-                            fontWeight: '500',
-                            color: '#1890ff',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            flex: 1
-                          }}
-                          onClick={() => enterFolder(folder.name)}
-                        >
-                          {folder.name}
-                        </span>
+                        {renamingFolder === folder.name ? (
+                          <input
+                            ref={renameInputRef}
+                            type="text"
+                            value={renamingValue}
+                            onChange={(e) => setRenamingValue(e.target.value)}
+                            onBlur={handleRenameComplete}
+                            onKeyDown={handleRenameKeyDown}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              fontWeight: '500',
+                              color: '#1890ff',
+                              border: '1px solid #91d5ff',
+                              borderRadius: '4px',
+                              padding: '4px 8px',
+                              fontSize: '14px',
+                              outline: 'none'
+                            }}
+                          />
+                        ) : (
+                          <span 
+                            style={{ 
+                              cursor: 'pointer',
+                              fontWeight: '500',
+                              color: '#1890ff',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              flex: 1
+                            }}
+                            onClick={() => handleFolderNameClick(folder.name)}
+                            onDoubleClick={(e) => handleFolderNameDoubleClick(e, folder.name)}
+                          >
+                            {folder.name}
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: '10px', whiteSpace: 'nowrap', marginLeft: '16px' }}>
                         <button 
